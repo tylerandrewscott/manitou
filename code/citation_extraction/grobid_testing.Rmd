@@ -1,0 +1,18 @@
+---
+title: "Grobid Testing"
+output: html_notebook
+---
+
+```{r setup, include = F}
+library(reticulate)
+use_python('../../usr/bin/python3')
+```
+
+
+```{python3}
+x = 'hello, python world!'
+print(x.split(' '))
+```
+
+
+

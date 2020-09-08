@@ -1,19 +1,15 @@
 
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 #if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
-library(INLA)
-inla.setOption(pardiso.license="../pardiso.lic")
-readLines(inla.getOption("pardiso.license"))
-inla.pardiso.check()
+require(INLA)
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
+not_installed = packages[!packages %in% installed.packages()[,'Package']]
+if(length(not_installed)>0){lapply(not_installed,install.packages)}
+lapply(packages,require,character.only = T)
 
+#run = 'joint_shared'
 start_year = 2005
 end_year = 2018
-if(!require(data.table)){install.packages('data.table');require(data.table)}
-if(!require(stringr)){install.packages('stringr');require(stringr)}
-if(!require(tidyverse)){install.packages('tidyverse');require(tidyverse)}
-if(!require(sf)){install.packages('sf');require(sf)}
-if(!require(lwgeom)){install.packages('lwgeom');require(lwgeom)}
-if(!require(ggthemes)){install.packages('ggthemes');require(ggthemes)}
 
 ##### this determines whether models run on per-congress (i.e., two year windows) #####
 # for "CALENDAR_YEAR" or "congress"
@@ -27,45 +23,37 @@ keep_activities = FALSE
 keep_purpose = TRUE
 
 
-albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 td = tempdir()
-admin_url ="https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
-tf = tempfile(tmpdir=td, fileext=".zip")
-download.file(admin_url, tf)
-fname = unzip(tf, list=TRUE)
-unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-fpath = file.path(td, grep('shp$',fname$Name,value=T))
-admin_districts <- st_read(fpath)
-admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
-#admin_districts  <- st_make_valid(admin_districts)
-admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
-admin_districts$FOREST_ID = admin_districts$FORESTORGC
-admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-admin_districts$FORESTNAME <- as.character(admin_districts$FORESTNAME)
+albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+# 
+# adm_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
+# tf = tempfile(tmpdir=td, fileext=".zip")
+# download.file(adm_url, tf)
+# fname = unzip(tf, list=TRUE)
+# unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
+# fpath = file.path(td, grep('shp$',fname$Name,value=T))
+# admin_districts <- st_read(fpath)
+# admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
+# # fix bad polygons
+# bad_polys = !st_is_valid(admin_districts)
+# admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
+# 
+# admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
+# admin_districts$FOREST_ID = admin_districts$FORESTORGC
+# admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
+#saveRDS(admin_districts,'scratch/admin_units_clean.RDS')
+admin_districts <- readRDS('scratch/admin_units_clean.RDS')
 
+drop_sites = c("Savannah River Site" ,"Land Between the Lakes National Recreation Area" ,
+               "Columbia River Gorge National Scenic Area" ,"Midewin National Tallgrass Prairie" )
+drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNAME)]
+system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
+system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
 file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
 states = tigris::states(class = 'sf')
 states <- st_transform(states,crs = st_crs(albersNA))
 test = st_within(st_centroid(admin_districts),states)
 admin_districts$STATE = states[unlist(test),]$STUSPS
-
-# ranger_url ="https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.RangerDistrict.zip"
-# tf = tempfile(tmpdir=td, fileext=".zip")
-# download.file(ranger_url, tf)
-# fname = unzip(tf, list=TRUE)
-# unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-# fpath = file.path(td, grep('shp$',fname$Name,value=T))
-# ranger_districts <- st_read(fpath)
-# ranger_districts <- st_transform(ranger_districts,crs = st_crs(albersNA))
-# #ranger_districts  <- st_make_valid(ranger_districts)
-# 
-# ranger_districts$DISTRICTNA = as.character(ranger_districts$DISTRICTNA)
-# ranger_districts$RANGERDIST = as.character(ranger_districts$RANGERDIST)
-# ranger_districts$FORESTNAME = as.character(ranger_districts$FORESTNAME)
-# ranger_districts$DISTRICTOR = as.character(ranger_districts$DISTRICTOR)
-# ranger_districts$DISTRICT_ID  = ranger_districts$DISTRICTOR
-# #ranger_districts$DISTRICT_ID <- str_extract(ranger_districts$DISTRICTOR,'[0-9]{6}$')
-# ranger_districts$FOREST_ID = str_extract(ranger_districts$DISTRICT_ID,'^[0-9]{4}')
 
 fs = fread('https://docs.google.com/spreadsheets/d/e/2PACX-1vRuz53_guoKQejdd97Syvws360-S7g21tkjeH73OJ1K6zWKNlGwaDRLvd7bbwIoyLmYCf9RWsAzETu-/pub?output=csv',stringsAsFactors = F)
 fs$ongoing = 0
@@ -75,6 +63,7 @@ fs2[,(numcols):=lapply(.SD,as.numeric),.SDcols = numcols]
 fs = merge(fs,fs2,all = T)
 fs = fs[!duplicated(paste(`PROJECT NUMBER`,`LMU (ACTUAL)`)),] 
 fs = fs[fs$`DECISION TYPE`!='PAD',]
+
 #fs = fs2
 #fs = fs[fs$`UNIQUE DECISION?`=='Y',]
 fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Buffalo Ranger District (11040306)"] <- "Blackrock Ranger District (11040306)"
@@ -109,7 +98,7 @@ fs$DECISON_LEVEL[grepl('National Recreation Area|National Scenic Area|National M
 require(lubridate)
 fs$CALENDAR_YEAR <- year(mdy(fs$`INITIATION DATE`))
 
-fs = fs[!fs$FOREST_ID%in%c('0000','2403','2408','2400','1300','0816','0836'),]
+fs = fs[!fs$FOREST_ID%in%drop_units,]
 fs = fs[order(fs$`DECISION ID`),]
 fs = fs[DECISON_LEVEL!='Region',]
 #fs = fs[!duplicated(`PROJECT NUMBER`),]
@@ -126,14 +115,16 @@ congress_ids = data.table(congress = rep(101:116,each=2),CALENDAR_YEAR = 1989:20
 fs = left_join(fs,congress_ids)
 fs = data.table(fs)
 
+
 totcount = fs[,.N,by=.(FOREST_ID)]
 admin_districts = left_join(admin_districts,totcount)
 admin_districts = admin_districts[admin_districts$FORESTNAME!='El Yunque National Forest',]
-library(tigris)
 us_counties = counties(class = 'sf',year = 2017)
 us_counties = st_transform(us_counties ,albersNA)
 #over_forest = st_intersects(us_counties,admin_districts)
 #us_counties = us_counties[sapply(over_forest,length)>0,]
+
+
 
 congress2015 = tigris::congressional_districts(year = 2015,class = 'sf')
 congress2015  = st_transform(congress2015 ,albersNA)
@@ -161,7 +152,7 @@ gg_forests = ggplot() +  #geom_sf(data = states,col = 'grey60') +
   theme_map() + theme(legend.position = c(0,.1),panel.grid = element_line(colour = "transparent"),title = element_text(size = 14),
                       legend.text = element_text(size = 12),legend.title = element_text(size= 12))
 
-ggsave(plot = gg_forests,filename = 'output/policypolitics/figures/national_forests.png',width=7,height=6,units ='in',dpi = 300)
+#ggsave(plot = gg_forests,filename = 'output/policypolitics/figures/national_forests.png',width=7,height=6,units ='in',dpi = 300)
 
 oregon_districts = admin_districts[admin_districts$REGION=='06',]
 oregon_districts = oregon_districts[sapply(st_intersects(oregon_districts,states[states$STUSPS=='OR',]),length)>0,]
@@ -172,9 +163,10 @@ oregon_house$ID = paste0('OR-',oregon_house$CD114FP)
 oregon_districts = left_join(oregon_districts,oregon115count)
 oregon_house$Dem_Rep = c('D','R','D','D','D')
 
+
 nf = fread('input/prepped/national_forest_covariates.csv')
-setnames(nf,'FISCAL_YEAR','CALENDAR_YEAR')
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
+
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
 
@@ -193,13 +185,12 @@ gg_oregon = ggplot() + ggtitle('Congressional Districts (115th) and\n National F
                       legend.text = element_text(size = 12),
                       legend.title = element_text(size =12))
 
-ggsave(plot = gg_oregon,filename = 'output/policypolitics/figures/oregon_overlap.png',width=7,height=6,units ='in')
-library(ggthemes)
+#ggsave(plot = gg_oregon,filename = 'output/policypolitics/figures/oregon_overlap.png',width=7,height=6,units ='in')
 oregon_districts$short_name = gsub(' National (Forest|Forests)$','',oregon_districts$FORESTNAME)
 oregon_districts$short_name = gsub(' National Scenic Area',' NSA',oregon_districts$short_name)
-oregon_house = lwgeom::st_make_valid(oregon_house)
+oregon_house = st_make_valid(oregon_house)
 oregon_districts = lwgeom::st_make_valid(oregon_districts)
-(gg_rep = ggplot() + ggtitle('House Representation (115th Congress)\n for National Forests in Oregon')+
+gg_rep = ggplot() + ggtitle('House Representation (115th Congress)\n for National Forests in Oregon')+
     geom_sf(data = oregon_house,col = NA,fill='grey90')+
     geom_sf(data = oregon_districts,aes(fill = LCV_annual,col = LCV_annual)) +
     geom_sf(data = oregon_house,lty = 1,fill = NA)+
@@ -212,14 +203,16 @@ oregon_districts = lwgeom::st_make_valid(oregon_districts)
                         legend.box = 'horizontal',
                         legend.background = element_rect(fill = alpha('white',0.5)),title = element_text(size = 15),
                         legend.text = element_text(size = 12),
-                        legend.title = element_text(size =12)))
+                        legend.title = element_text(size =12))
 
-ggsave(plot = gg_rep,filename = 'output/policypolitics/figures/oregon_lcv_annual.png',width=7,height=6,units ='in')
+#ggsave(plot = gg_rep,filename = 'output/policypolitics/figures/oregon_lcv_annual.png',width=7,height=6,units ='in')
+
 
 fs = fs[congress%in%109:115,]
+fs = fs[FOREST_ID %in% admin_districts$FOREST_ID,]
+
 
 fs = fs[fs$`DECISION TYPE`%in%keep_decisions,]
-
 fs$Type_Activity_Extractive <- 0
 fs$Type_Activity_Recreation_Wildlife <- 0
 fs$Type_Activity_Extractive <- (fs$`TS Timber salves (green) – activity`==1|fs$`SS Timber sales (salvage) – activity`==1|fs$`MG Minerals and geology – purpose`==1|
@@ -266,27 +259,16 @@ subset_projtypes = lapply(subvars, function(x) {
 counts_by_type = rbindlist(subset_projtypes,use.names = T)
 counts_by_type$N[is.na(counts_by_type$N)]<-0
 
-library(lubridate)
+
 durations = fs[,list(mean(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=T),median(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=T)),by = .(`DECISION TYPE`)]
 names(durations) <- c('Type','mean','median')
 
-table(fs$`DECISION TYPE`[fs$Type_Purpose_Extractive==1],
-      fs$`FN Fuel treatments – activity`[fs$Type_Purpose_Extractive==1])
-
-
-table(ifelse(fs$`TM Forest products – purpose`==1,'Purpose:products',0),
-      ifelse(fs$`HF Fuels management – purpose`==1,'Purpose:fuels',0))
-
-table(fs$`VM Vegetation management (non-forest products) – purpose`,
-      fs$`TM Forest products – purpose`,
-      fs$`HF Fuels management – purpose`)
 
 
 #counts_by_type[FOREST_ID=='1004']
-nf= nf[!nf$FOREST_ID%in%c('0000','2403','2408','2400','1300','0816','0836'),]
+nf= nf[!nf$FOREST_ID%in%drop_units,]
 nf$Num_Eco_Sections[nf$Num_Eco_Sections==0] <- 1
 nf = nf[order(FOREST_ID,get(period_type)),]
-
 nf = nf[, zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
 
 nf$Prop_Extraction_Employ = nf$Prop_Forestry_Employ + nf$Prop_Mining_Employ
@@ -304,11 +286,10 @@ nf$demCongress[nf$demCongress==2] <- 0
 nf$congress = as.character(nf$congress)
 nf$nominate_dim1  = nf$nominate_dim1  * -1
 nf$nominate_dim2  = nf$nominate_dim2  * -1
+nf$mrp_mean = nf$mrp_mean * -1
 
 nf$ComLCV = (nf$nrComLCV+nf$agComLCV)/2
 nf$ChairLCV = (nf$nrChairLCV + nf$agChairLCV)/2
-
-
 
 nf$Ln_ACRES = log(nf$ACRES)
 nf$Ln_AVERAGE_YEARLY_VISITS = log(nf$Average_Yearly_Visits)
@@ -341,95 +322,72 @@ if(period_type !='congress'){
 all_combos = data.table(all_combos)
 subtypes = unique(counts_by_type$Project_Type)
 
-ak_voting = data.table(congress = 109:115,
-                       percentD_H = rep(c(22.44,40.01,44.98,30.51,28.62,40.94,36.02)/100))
-
-nf$percentD_H[!is.na(nf$USFS_REGION) & nf$USFS_REGION==10] <- ak_voting$percentD_H[match(nf$congress[!is.na(nf$USFS_REGION) & nf$USFS_REGION==10],ak_voting$congress)]
-
-#nf$Restricted_Prop = nf$Limited_Use_Prop + nf$Wilderness_Prop
-#nf$Restricted_Prop[nf$Restricted_Prop>1]<-1
-#nf$Restricted_Perc = nf$Restricted_Prop * 100
-
-
-
-#nf[order(FOREST_ID,congress,CALENDAR_YEAR),ln_County_naturalresource_GDP_1M_L1:=lag(ln_County_naturalresource_GDP_1M),by=.(FOREST_ID)]
-#nf[order(FOREST_ID,congress,CALENDAR_YEAR),Unemp_Rate_L1:=lag(Unemp_Rate),by=.(FOREST_ID)]
-#nf[order(FOREST_ID,congress,CALENDAR_YEAR),Perc_Extraction_Employ_L1:=lag(Perc_Extraction_Employ),by=.(FOREST_ID)]
 nf$`Avg_MBF_Cut_1999-2004`[is.na(nf$`Avg_MBF_Cut_1999-2004`)]<-0
 nf$Ln_Avg_MBF_Cut_1999_2004 = log(nf$`Avg_MBF_Cut_1999-2004`+0.001)
+
+nf$ln_Receipts_Extraction_1M_P4 <- log(nf$Receipts_TimberMineralsGrazing_P4/1e6+1)
+nf$ln_Receipts_Recreation_1M_P4 <- log(nf$Receipts_Recreation_P4/1e6+1)
+
 #setnames(nf,'LAU','Unemp_Rate')
 nf = nf[order(FOREST_ID,CALENDAR_YEAR),Unemp_Rate:=lag(LAU_October),by = .(FOREST_ID)]
-
 nf$STATE = admin_districts$STATE[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,LCV_annual,CALENDAR_YEAR)])
 dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
-tt = ggplot() + geom_sf(data = dist_by_year,aes(fill = LCV_annual,colour = LCV_annual)) + 
-  facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
-  ggtitle('LCV annual by year and forest') + theme_map() + scale_fill_viridis_c() + 
-  scale_colour_viridis_c()
-#ggsave(tt,dpi = 300,filename = 'output/policypolitics/figures/LCV_by_forest_and_year.png',height = 12,width = 8,units = 'in')
-
+# 
+# tt = ggplot() + geom_sf(data = dist_by_year,aes(fill = LCV_annual,colour = LCV_annual)) + 
+#   facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
+#   ggtitle('LCV annual by year and forest') + theme_map() + scale_fill_viridis_c() + 
+#   scale_colour_viridis_c()
+# #ggsave(tt,dpi = 300,filename = 'output/policypolitics/figures/LCV_by_forest_and_year.png',height = 12,width = 8,units = 'in')
 
 
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,Unemp_Rate ,CALENDAR_YEAR)])
 dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
-tt = ggplot() + geom_sf(data = dist_by_year,aes(fill = Unemp_Rate,colour = Unemp_Rate)) + 
-  facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
-  ggtitle('Unemp. % by year and forest') + theme_map() + scale_fill_viridis_c() + 
-  scale_colour_viridis_c()
+# tt = ggplot() + geom_sf(data = dist_by_year,aes(fill = Unemp_Rate,colour = Unemp_Rate)) + 
+#   facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
+#   ggtitle('Unemp. % by year and forest') + theme_map() + scale_fill_viridis_c() + 
+#   scale_colour_viridis_c()
 #ggsave(tt,dpi = 300,filename = 'output/policypolitics/figures/Unemp_by_forest_and_year.png',height = 12,width = 8,units = 'in')
 
 
 
-form0 = Y ~ 0 + mu.u + mu.y +
-  f(u_forest_id,model = 'iid') + #,hyper = pc.prec.u) + 
-  f(y_forest_id,model = 'iid') + #,hyper = pc.prec.y) +
-  f(u_congress_id,model = 'iid') + #,hyper = pc.prec.u) + 
-   f(y_congress_id,model = 'iid')+ #,hyper = pc.prec.y) +
-  f(u_region_id, model = 'iid')+ #,hyper = pc.prec.u) + 
-  f(y_region_id,model = 'iid') + #,hyper = pc.prec.y) +
-  f(u_state_id, model = 'iid') + #,hyper = pc.prec.u) + 
-  f(y_state_id,model = 'iid') + #,hyper = pc.prec.y) +
-  y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
-  y_Ln_ACRES + y_Wilderness_Perc + #y_Limited_Use_Perc + 
-  y_Burned_Perc_Past5yrs  + 
-  y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species + 
-  y_Perc_WUI_Housing + 
-  u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
-  u_Ln_ACRES + u_Wilderness_Perc + #u_Limited_Use_Perc + 
-  u_Burned_Perc_Past5yrs  + 
-  u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species + 
-  u_Perc_WUI_Housing +
-  u_demPres + u_demCongress + y_demPres + y_demCongress +
-  u_LCV_annual + y_LCV_annual 
-#   u_Ln_Avg_MBF_Cut_1999_2004 + y_Ln_Avg_MBF_Cut_1999_2004 +
-#  u_ALLOTMENT_NEPA_1993_2004 + y_ALLOTMENT_NEPA_1993_2004 +
-#  u_MINING_CLAIM_ACTIONS_1993_2004 + y_MINING_CLAIM_ACTIONS_1993_2004
-form1 = update.formula(form0, ~ . + u_LCV_annual:u_Unemp_Rate + y_LCV_annual:y_Unemp_Rate)
-form2 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
-form3 = update.formula(form2, ~ . + u_percentD_H:u_Unemp_Rate + y_percentD_H:y_Unemp_Rate)
-form4 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
-form5 = update.formula(form4, ~ . + u_democrat:u_Unemp_Rate + y_democrat:y_Unemp_Rate)
+  form0 = Y ~ 0 + mu.u + 
+    f(u_forest_id,model = 'iid',hyper = pc.prec.u) + 
+    f(u_congress_id,model = 'iid',hyper = pc.prec.u) + 
+    f(u_region_id, model = 'iid',hyper = pc.prec.u) + 
+    f(u_state_id, model = 'iid',hyper = pc.prec.u) + 
+    f(y_forest_id,model = 'iid',hyper = pc.prec.y) +
+    f(y_congress_id,model = 'iid',hyper = pc.prec.y) +
+    f(y_region_id,model = 'iid',hyper = pc.prec.y) +
+    f(y_state_id,model = 'iid',hyper = pc.prec.y) +
+    u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
+    u_ln_Receipts_Extraction_1M_P4 + u_ln_Receipts_Recreation_1M_P4 +
+    u_Total_Receipts_4yr_Change_Perc +
+    u_Ln_ACRES + u_Wilderness_Perc + 
+    u_Burned_Perc_Past5yrs  + 
+    u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species + 
+    u_Perc_WUI_Housing +
+    u_demPres + u_demCongress + 
+    u_mrp_mean +
+    u_LCV_annual + 
+    mu.y +
+    y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
+    y_ln_Receipts_Extraction_1M_P4 + y_ln_Receipts_Recreation_1M_P4 +
+    y_Total_Receipts_4yr_Change_Perc +
+    y_Ln_ACRES + y_Wilderness_Perc + 
+    y_Burned_Perc_Past5yrs  + 
+    y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species + 
+    y_Perc_WUI_Housing + 
+    y_demPres + y_demCongress +
+    y_mrp_mean +
+    y_LCV_annual 
 
-#form2C = update.formula(form0, ~ . + u_LCV_annual*u_Prop_Extraction_Employ + y_LCV_annual*y_Prop_Extraction_Employ)
-#form2D = update.formula(form0, ~ . + u_LCV_annual*u_ln_County_naturalresource_GDP_1M + y_LCV_annual*y_ln_County_naturalresource_GDP_1M)
-
-#form2E = update.formula(form0, ~ . + u_percentD_H*u_Unemp_Rate + y_percentD_H*y_Unemp_Rate)
-#form2F = update.formula(form0, ~ . + u_percentD_H*u_Prop_Extraction_Employ + y_percentD_H*y_Prop_Extraction_Employ)
-#form2G = update.formula(form0, ~ . + u_percentD_H*u_ln_County_naturalresource_GDP_1M + y_percentD_H*y_ln_County_naturalresource_GDP_1M)
-
-#model 4: no macros, itneract lcv annual w/ wilderness and species
-#form3A = update.formula(form0, ~ . + u_Wilderness_Prop : u_LCV_annual + y_Wilderness_Prop : y_LCV_annual)
-#form3B = update.formula(form0, ~ . + u_Count_EorT_Species : u_LCV_annual + y_Count_EorT_Species : y_LCV_annual)
-
-#form4A = update.formula(form0, ~ . + u_Wilderness_Prop : u_percentD_H + y_Wilderness_Prop : y_percentD_H)
-#form4B = update.formula(form0, ~ . + u_Count_EorT_Species : u_percentD_H  + y_Count_EorT_Species : y_percentD_H)
-
-#form3C = update.formula(form0, ~ . + u_Ln_AVERAGE_YEARLY_VISITS  : u_LCV_annual + y_Ln_AVERAGE_YEARLY_VISITS  : y_LCV_annual)
-#Model 6: same as above, but instead use percentD_H
-#form5A = update.formula(form0, ~ . + u_Wilderness_Prop : u_percentD_H + y_Wilderness_Prop : y_percentD_H)
-#form5B = update.formula(form0, ~ . + u_Count_EorT_Species : u_percentD_H + y_Count_EorT_Species : y_percentD_H)
+  form0x = update.formula(form0, ~ . + u_LCV_annual:u_Unemp_Rate + y_LCV_annual:y_Unemp_Rate)
+  form1 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
+  form1x = update.formula(form1, ~ . + u_percentD_H:u_Unemp_Rate + y_percentD_H:y_Unemp_Rate)
+  form2 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
+  form2x =  update.formula(form2, ~ . + u_democrat:u_Unemp_Rate + y_democrat:y_Unemp_Rate)
 
 list_of_forms = grep('form[0-9]',ls(),value=T)
 raw_vars = unlist(lapply(list_of_forms,function(x)  grep('^u_',str_split(as.character(get(x)[[3]])[2],pattern = '\\s\\+\\s')[[1]],value=T) ))
@@ -442,31 +400,34 @@ uvars_int = grep(':',uvars,value = T,invert = F)
 uvars_interaction_products = as.data.table(sapply(str_split(uvars_int ,':'),function(x) rowProds(as.matrix(nf[FOREST_ID %in% fs$FOREST_ID &CALENDAR_YEAR %in% start_year:end_year,gsub('u_','',(unlist(x))),with = F]))))
 names(uvars_interaction_products) <- gsub('u_','',uvars_int)
 
-coef_vals = cbind(nf[FOREST_ID %in% fs$FOREST_ID & CALENDAR_YEAR %in% start_year:end_year,unique(gsub('u_','',uvars_no_int)),with = F],uvars_interaction_products)
+nf = nf[nf$congress%in%109:115,]
+
+coef_vals = cbind(nf[FOREST_ID %in% fs$FOREST_ID & CALENDAR_YEAR %in% start_year:end_year,c('FOREST_ID','CALENDAR_YEAR',unique(gsub('u_','',uvars_no_int))),with = F],uvars_interaction_products)
 swap_names = names(coef_vals)
 swap_names = as.factor(swap_names)
 
 
-fs[FOREST_ID=='0915',]
-admin_districts[admin_districts$FOREST_ID=='0915',]
-length(unique(nf$FOREST_ID))
-unique(nf$FOREST_ID)[!unique(nf$FOREST_ID) %in% unique(model_list_of_lists[[1]][[1]]$.args$data$u_forest_id)]
+
 
 swap_names = fct_recode(swap_names,
                         '(intercept)' = 'mu.u',
                         '% wilderness area' = 'Wilderness_Perc',
                         '% dem. vote share' = 'percentD_H',
                         '% housing in WUI' = 'Perc_WUI_Housing',
+                        'Public ideology' = 'mrp_mean',
                         '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
+                        'ln(Resource receipts, last 4 yrs)' = 'ln_Receipts_Extraction_1M_P4',
+                        'ln(Recreation receipts, last 4 yrs)' = 'ln_Receipts_Recreation_1M_P4',
                         '% burned last 5 years'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
                         'Unemployment %' = 'Unemp_Rate','% extraction employ.' = 'Perc_Extraction_Employ',
                         'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS','ln($1M county NR GDP)' = 'ln_County_naturalresource_GDP_1M',
                         'ln(avg. board feet, 1999 to 2004)' = "Ln_Avg_MBF_Cut_1999_2004" ,
                         'NEPA grazing actions, 1993 to 2004' = "ALLOTMENT_NEPA_1993_2004",
                         'Mining claim actions, 1993 to 2004' = "MINING_CLAIM_ACTIONS_1993_2004" ,
+                        '% change in receipts (vs. t-4)' = 'Total_Receipts_4yr_Change_Perc',
                         'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
                         "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
-                        'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
+                        'Dem. rep.' = 'democrat','Dem. rep. x unemp.  %' = "Unemp_Ratexdemocrat" ,
                         'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual',
                         'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
 colnames(coef_vals) <- as.character(swap_names)
@@ -477,7 +438,7 @@ corr <- round(cor(coef_vals,use = 'pairwise.complete.obs'), 2)
 
 #install.packages("ggcorrplot")
 require(ggcorrplot)
-ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = TRUE)
+ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = F)
 ggsave(plot = ggc,filename = 'output/policypolitics/figures/correlation_plot.png',width=  8,height = 8, units = 'in',dpi = 300)
 
 
@@ -541,6 +502,11 @@ if(period_type!='congress'){
 yheight = input_data[,.N,by = .(Tot_Proj)][N==max(N),]$N
 
 
+
+dim(counts_by_type[Project_Type=='Type_Purpose_Extractive',sum(N),by=.(FOREST_ID,CALENDAR_YEAR)][V1!=0,])
+
+
+
 g1 = ggplot(data = input_data,aes(x = Tot_Proj)) + geom_histogram(bins = 100)+
   scale_y_continuous(name = '# forest-congress observations') +
   scale_x_continuous(name = '# projects by period') + theme_bw() + 
@@ -556,13 +522,18 @@ g3 = ggplot(data = input_data,aes(x = Tot_Proj,y = CE)) + geom_jitter(pch = 21) 
   scale_x_continuous(name = '# projects in period') +
   scale_y_continuous(name = '# CEs issued') + 
   ggtitle('CEs vs. total extractive projects')
-
-
 library(gridExtra)
 ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'output/policypolitics/figures/DV_plot.png',width = 8,units = 'in',height= 8,dpi = 300)
 
 
-nf = nf[nf$congress%in%109:115,]
+
+
+forest_index = data.table(forest_id = sort(unique(nf$FOREST_ID)),index = seq_along(unique(nf$FOREST_ID)))
+region_index = data.table(region_id = sort(unique(nf$USFS_REGION)),index = seq_along(unique(nf$USFS_REGION)))
+state_index = data.table(state_id = sort(unique(nf$STATE)),index = seq_along(unique(nf$STATE)))
+congress_index = data.table(congress_id = sort(unique(nf$congress)),index = seq_along(unique(nf$congress)))
+
+
 
 makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   temp_count = project_type_counts_for_model[Project_Type==mod,,]
@@ -576,27 +547,39 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   n = nrow(temp_dt)
   u = rowSums(temp_dt[,c('CE','EA','EIS'),with = F])
   narep = length(u)
-   y <- ifelse(u>0,temp_dt$CE,NA)
+  y <- ifelse(u>0,temp_dt$CE,NA)
   idat <- list(Y=matrix(NA,2*n,2))
   idat$Y[1:n,1] <- u
   idat$Y[n+1:n,2] <- y
   idat$mu.u <- rep(1:0, each=n)
   idat$mu.y <- rep(0:1, each=n)
-  idat$u_forest_id = c(temp_dt$FOREST_ID,rep(NA,length(y)))
-  idat$y_forest_id = c(rep(NA,narep),temp_dt$FOREST_ID)
+  
+  idat$u_forest_id = c(temp_dt$FOREST_ID,rep(NA,length(y)))#temp_dt$FOREST_ID)
+  idat$uc_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
+  idat$y_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
+  
   idat$u_congress_id = c(temp_dt$congress,rep(NA,length(y)))
-  idat$y_congress_id = c(rep(NA,narep),temp_dt$congress)
-  idat$u_yearid = c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))
-  idat$y_yearid = c(rep(NA,narep),temp_dt$CALENDAR_YEAR)
-  idat$u_state_id = c(temp_dt$STATE,rep(NA,narep))
-  idat$y_state_id = c(rep(NA,narep),temp_dt$STATE)
+  idat$uc_congress_id =  c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
+  idat$y_congress_id = c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
+  
+  idat$u_year_id = c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))
+  idat$uc_year_id =  c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
+  idat$y_year_id =   c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
+  
+  idat$u_state_id = c(temp_dt$STATE,rep(NA,length(y)))
+  idat$uc_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
+  idat$y_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
+  
   idat$u_region_id = c(temp_dt$USFS_REGION,rep(NA,length(y)))
-  idat$y_region_id = c(rep(NA,narep),temp_dt$USFS_REGION)
+  idat$uc_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
+  idat$y_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
+
   #### binomial EIS / [EA+EIS] model coefficients
   #idat$y_FOREST_LEVEL_DECISIONS = c(rep(NA,narep),scale(temp_dt$FOREST_LEVEL_DECISIONS))
   idat$y_Unemp_Rate = c(rep(NA,narep),scale(temp_dt$Unemp_Rate))
   #idat$y_Unemp_Rate_L1 = c(rep(NA,narep),scale(temp_dt$Unemp_Rate_L1))
-  
+  idat$y_ln_Receipts_Extraction_1M_P4 = c(rep(NA,narep),scale(temp_dt$ln_Receipts_Extraction_1M_P4))
+  idat$y_ln_Receipts_Recreation_1M_P4 = c(rep(NA,narep),scale(temp_dt$ln_Receipts_Recreation_1M_P4))
   idat$y_Ln_Avg_MBF_Cut_1999_2004 = c(rep(NA,narep),scale(temp_dt$Ln_Avg_MBF_Cut_1999_2004))
   idat$y_ALLOTMENT_NEPA_1993_2004 = c(rep(NA,narep),scale(temp_dt$ALLOTMENT_NEPA_1993_2004))
   idat$y_MINING_CLAIM_ACTIONS_1993_2004 = c(rep(NA,narep),scale(temp_dt$MINING_CLAIM_ACTIONS_1993_2004))
@@ -610,6 +593,8 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   idat$y_percentD_H = c(rep(NA,narep),scale(temp_dt$percentD_H)) 
   #idat$y_democrat = c(rep(NA,narep),scale(temp_dt$democrat))  
   idat$y_LCV_annual= c(rep(NA,narep),scale(temp_dt$LCV_annual))
+  idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
+  
   #idat$y_nominate_dim1 = c(rep(NA,narep),scale(temp_dt$nominate_dim1))
   #idat$y_nominate_dim1_x_y_democrat =  c(rep(NA,narep),scale(temp_dt$nominate_dim1) * scale(temp_dt$democrat))
   idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
@@ -617,20 +602,21 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
   idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
   idat$y_Perc_WUI_Housing = c(rep(NA,narep),scale(temp_dt$Perc_WUI_Housing))
-  idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
-#  idat$y_ln_County_naturalresource_GDP_1M_L1 = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M_L1))
   
+  idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
+  #  idat$y_ln_County_naturalresource_GDP_1M_L1 = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M_L1))
+  idat$y_Total_Receipts_4yr_Change_Perc = c(rep(NA,narep),scale(temp_dt$Total_Receipts_4yr_Change_Perc))
   #idat$u_FOREST_LEVEL_DECISIONS = c(scale(temp_dt$FOREST_LEVEL_DECISIONS),rep(NA,narep))
   idat$u_Unemp_Rate = c(scale(temp_dt$Unemp_Rate),rep(NA,narep))
- # idat$u_Unemp_Rate_L1 = c(scale(temp_dt$Unemp_Rate_L1),rep(NA,narep))
-  
+  # idat$u_Unemp_Rate_L1 = c(scale(temp_dt$Unemp_Rate_L1),rep(NA,narep))
   idat$u_Ln_Avg_MBF_Cut_1999_2004 = c(scale(temp_dt$Ln_Avg_MBF_Cut_1999_2004),rep(NA,narep))
   idat$u_ALLOTMENT_NEPA_1993_2004 = c(scale(temp_dt$ALLOTMENT_NEPA_1993_2004),rep(NA,narep))
   idat$u_MINING_CLAIM_ACTIONS_1993_2004 = c(scale(temp_dt$MINING_CLAIM_ACTIONS_1993_2004),rep(NA,narep))
-  
+  idat$u_ln_Receipts_Extraction_1M_P4 = c(scale(temp_dt$ln_Receipts_Extraction_1M_P4),rep(NA,narep))
+  idat$u_ln_Receipts_Recreation_1M_P4 = c(scale(temp_dt$ln_Receipts_Recreation_1M_P4),rep(NA,narep))
   idat$u_Perc_Extraction_Employ = c(scale(temp_dt$Perc_Extraction_Employ),rep(NA,narep))
-#  idat$u_Perc_Extraction_Employ_L1 = c(scale(temp_dt$Perc_Extraction_Employ_L1),rep(NA,narep))
-  
+  #  idat$u_Perc_Extraction_Employ_L1 = c(scale(temp_dt$Perc_Extraction_Employ_L1),rep(NA,narep))
+  idat$u_Total_Receipts_4yr_Change_Perc = c(scale(temp_dt$Total_Receipts_4yr_Change_Perc),rep(NA,narep))
   idat$u_Perc_WUI_Housing = c(scale(temp_dt$Perc_WUI_Housing),rep(NA,narep))
   idat$u_Ln_ACRES = c(scale(temp_dt$Ln_ACRES),rep(NA,narep))
   idat$u_Wilderness_Perc = c(scale(temp_dt$Wilderness_Perc),rep(NA,narep)) 
@@ -639,7 +625,8 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   idat$u_Count_EorT_Species= c(scale(temp_dt$Count_EorT_Species),rep(NA,narep)) 
   idat$u_percentD_H = c(scale(temp_dt$percentD_H),rep(NA,narep)) 
   #idat$u_democrat = c(scale(temp_dt$democrat),rep(NA,narep))  
-  idat$u_LCV_annual= c(scale(sqrt(temp_dt$LCV_annual)),rep(NA,narep)) 
+  idat$u_LCV_annual= c(scale(temp_dt$LCV_annual),rep(NA,narep)) 
+  idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
   idat$u_democrat = c(temp_dt$democrat,rep(NA,narep))
   idat$y_democrat = c(rep(NA,narep),temp_dt$democrat)
   #idat$u_nominate_dim1 = c(scale(temp_dt$nominate_dim1),rep(NA,narep))
@@ -649,7 +636,7 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
   idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
   idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
- # idat$u_ln_County_naturalresource_GDP_1M_L1 = c(scale(temp_dt$ln_County_naturalresource_GDP_1M_L1),rep(NA,narep))
+  # idat$u_ln_County_naturalresource_GDP_1M_L1 = c(scale(temp_dt$ln_County_naturalresource_GDP_1M_L1),rep(NA,narep))
   idat$n = n;idat$y = y;idat$u = u;
   return(idat)}
 
@@ -662,6 +649,7 @@ library(INLA)
 pcount = fs[fs$congress>=109&fs$congress<=115,]
 table(pcount$`DECISION TYPE`)
 table(pcount$`DECISION TYPE`,pcount$Type_Purpose_Extractive)
+
 library(ggrepel)
 
 
@@ -674,8 +662,13 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][order(-N),][CALENDAR_YE
 counts_by_type[Project_Type=='Type_Purpose_Extractive',sum(N),by=.(CALENDAR_YEAR,FOREST_ID)][order(-V1),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
 
 
+counts_by_type$UNIT = admin_districts$FORESTNAME[match(counts_by_type$FOREST_ID,admin_districts$FOREST_ID)]
+
+counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
+
+
 list_of_results = lapply(subtypes,function(mod) {
-  mod = subtypes[2]
+
   idat = makeIDAT(mod = mod,nf = nf,project_type_counts_for_model = counts_by_type)
   #  temp = merge(temp,all_combos,all=T)
   #  temp$N[is.na(temp$N)] <- 0
@@ -684,21 +677,43 @@ list_of_results = lapply(subtypes,function(mod) {
   y.sdres <- sd(idat$y/idat$u,na.rm=T)
   pc.prec.u = list(prec = list(prior = "pc.prec", param = c(3*u.sdres, 0.01)))
   pc.prec.y = list(prec = list(prior = "pc.prec", param = c(3*y.sdres, 0.01)))
+  bprior <- list(prior = 'gaussian', param = c(0,1))
   famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
-                        list(prior = "pcprec", param = c(3*y.sdres,0.01)))
+                    list(prior = "pcprec", param = c(3*y.sdres,0.01)))
+  cinla <- list(strategy = 'adaptive', int.strategy = 'eb') 
+  cres <- list(return.marginals.predictor = FALSE, 
+               return.marginals.random = FALSE)
+  
+  idat$u_forest_id <- forest_index$index[match(idat$u_forest_id,forest_index$forest_id)]
+  idat$y_forest_id <- forest_index$index[match(idat$y_forest_id,forest_index$forest_id)] + nrow(forest_index)
+  idat$uc_forest_id <-  idat$u_forest_id
+  
+  idat$u_region_id <- region_index$index[match(idat$u_region_id,region_index$region_id)]
+  idat$y_region_id <- region_index$index[match(idat$y_region_id,region_index$region_id)] + nrow(region_index)
+  idat$uc_region_id <-  idat$u_region_id
+  
+  idat$u_state_id <- state_index$index[match(idat$u_state_id,state_index$state_id)]
+  idat$y_state_id <- state_index$index[match(idat$y_state_id,state_index$state_id)] + nrow(state_index)
+  idat$uc_state_id <-  idat$u_state_id
+  
+  idat$u_congress_id <- congress_index$index[match(idat$u_congress_id,congress_index$congress_id)]
+  idat$y_congress_id <- congress_index$index[match(idat$y_congress_id,congress_index$congress_id)] + nrow(congress_index)
+  idat$uc_congress_id <-  idat$u_congress_id
+
   mod_list = lapply(list_of_forms,function(f) {print(f);gc();inla(get(f),
-                                                             family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
-                                                             control.fixed = list(expand.factor.strategy = "inla"),
-                                                            # control.family = famcontrol,
-                                                             data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE),
-                                                             control.predictor=list(compute=TRUE),verbose=F)})
+                                                                  family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
+                                                                  control.fixed = list(expand.factor.strategy = "inla"),
+                                                                  control.family = famcontrol,
+                                                                  control.inla = cinla,
+                                                                  control.results = cres,
+                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE,config = TRUE),
+                                                                  control.predictor=list(compute=TRUE),verbose=F)})
+  
   #fixef_results = lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.),form = x,mod = mod))
   saveRDS(mod_list,paste0('output/policypolitics/model_objects/models_',mod,'.RDS'))
-  #rbindlist(fixef_results)
 })
 
-# 
-# sapply(list_of_results,function(x) sapply(x,function(y) y$waic$waic))
+
 # waic_scores = data.table(sapply(list_of_results,function(x) sapply(x,function(y) y$waic$waic)))
 # waic_scores$formula <- list_of_forms
 # colnames(waic_scores)[1:length(subtypes)]<-subtypes
@@ -723,12 +738,6 @@ lcv_vs_unemp = ggplot(nf,aes(x = LCV_annual,y = Unemp_Rate)) + geom_point(pch = 
 
 ggsave(lcv_vs_unemp,filename = 'output/policypolitics/figures/IV_plot.png',dpi=300,width = 6, height = 6, units = 'in')
 
-
-cvals = coef_vals[,!grepl(':',names(coef_vals)),with = F]
-cv = melt(cvals)
-cv
-ggplot(cv) + geom_histogram(aes(x = as.numeric(value))) + facet_wrap(~variable, ncol = 3,scales = 'free') + 
-  theme_bw()
 
 
 

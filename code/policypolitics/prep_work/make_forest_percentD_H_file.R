@@ -122,6 +122,7 @@ house_rep_voting = rbind(house_rep_voting,no_dem_opponent,use.names=T,fill=T)
 house_rep_voting$district <- ifelse(house_rep_voting$district==0,1,house_rep_voting$district)
 house_rep_voting$SID = paste0(house_rep_voting$state_po,house_rep_voting$district)
 
+
 need_to_fill = which(is.na(county_voting$percentD_H))
 
 replacement_vals = pbsapply(need_to_fill,function(i){
@@ -145,6 +146,11 @@ val},cl = 10)
 
 
 county_voting$percentD_H[need_to_fill] <-unlist(replacement_vals)
+
+
+#ak_voting = data.table(congress = 109:115,percentD_H = rep(c(22.44,40.01,44.98,30.51,28.62,40.94,36.02)/100))
+#nf$percentD_H[!is.na(nf$USFS_REGION) & nf$USFS_REGION==10] <- ak_voting$percentD_H[match(nf$congress[!is.na(nf$USFS_REGION) & nf$USFS_REGION==10],ak_voting$congress)]
+
 
 saveRDS(county_voting,'input/politics/countyVoteShare_3-2020_imputed.rds')
 

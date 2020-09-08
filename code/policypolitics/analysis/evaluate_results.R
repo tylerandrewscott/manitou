@@ -8,11 +8,12 @@
   
   if(!require(scales)){install.packages('scales');library(scales)}
   if(!require(R2HTML)){install.packages('R2HTML');library(R2HTML)}
+  if(!require(sf)){install.packages('sf');library(sf)}
   
-  
-  albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
   td = tempdir()
-  admin_url ="https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
+  albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+  
+  admin_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
   tf = tempfile(tmpdir=td, fileext=".zip")
   download.file(admin_url, tf)
   fname = unzip(tf, list=TRUE)
@@ -20,14 +21,15 @@
   fpath = file.path(td, grep('shp$',fname$Name,value=T))
   admin_districts <- st_read(fpath)
   admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
-  #admin_districts  <- st_make_valid(admin_districts)
+  # fix bad polygons
+  
+
+  bad_polys = !st_is_valid(admin_districts)
+  admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
+  
   admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
   admin_districts$FOREST_ID = admin_districts$FORESTORGC
   admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-  admin_districts$FORESTNAME <- as.character(admin_districts$FORESTNAME)
-  
-  
-  
   file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
   locs = 'output/policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name = c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
@@ -39,12 +41,11 @@
   intersect(grep('activities',model_sets,value = T,invert = T),grep('noCX',model_sets,value = T,invert = T)))
   #intersect(grep('activities',model_sets,value = T,invert = F),grep('noCX',model_sets,value = T,invert = T)))
   
-  names(mod_name_sets) <- c('')
   
- 
- 
+  names(mod_name_sets) <- c('')
+
   # lapply(seq_along(mod_name_sets),function(mod){
-   mod = 1
+
   model_list_of_lists = lapply(mod_name_sets[[mod]],function(x) readRDS(paste0(locs,x)))
   names(model_list_of_lists) <- mod_name_sets[[mod]]
 
@@ -112,7 +113,7 @@
               'Democratic president','Democratic congress',
               '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
               "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
-  
+
 htmlTable::htmlTable(simple_table[order(coef,)])
 
 
@@ -183,6 +184,10 @@ coef_results$coef = fct_recode(coef_results$coef, '% wilderness area' = 'Wildern
            'Mining claim actions, 1993 to 2004' = "MINING_CLAIM_ACTIONS_1993_2004" ,
            'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
            "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
+           'ln(Resource receipts, last 4 yrs)' = 'ln_Receipts_Extraction_1M_P4',
+           'ln(Recreation receipts, last 4 yrs)' = 'ln_Receipts_Recreation_1M_P4',
+           'Public ideology' = 'mrp_mean',
+           '% change in receipts (vs. t-4)' = 'Total_Receipts_4yr_Change_Perc',
            'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
            'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual',
            'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
@@ -190,11 +195,14 @@ coef_results$coef = fct_recode(coef_results$coef, '% wilderness area' = 'Wildern
 #coef_results$coef <- fct_inorder(coef_results$coef)
 coef_results$coef <- fct_relevel(coef_results$coef,'ln(forest acreage)','ln(yearly visitation)',
                                  'ln(avg. board feet, 1999 to 2004)' ,
+                                 'ln(Resource receipts, last 4 yrs)',
+                                 'ln(Recreation receipts, last 4 yrs)' ,
+                                 '% change in receipts (vs. t-4)',
                                  'NEPA grazing actions, 1993 to 2004' ,
                                  'Mining claim actions, 1993 to 2004',
                                  '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
                                  '% extraction employ.','ln(county NR GDP ($1M))',
-                                 'Democratic president','Democratic congress',
+                                 'Democratic president','Democratic congress',   'Public ideology' ,
                                  '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
                                  "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
 

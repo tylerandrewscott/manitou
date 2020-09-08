@@ -4,6 +4,10 @@ if(!require(tidyverse)){install.packages('tidyverse');require(tidyverse)}
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE);require(INLA)}
 if(!require(INLAutils)){devtools::install_github('timcdlucas/INLAutils');require(INLAutils)}
 if(!require(matrixStats)){install.packages('matrixStats');require(matrixStats)}
+
+# From github
+library(devtools)
+
 library(ggthemes)
 empty_list = data.table()
 locs = 'output/policypolitics/model_objects/'
@@ -11,23 +15,11 @@ model_sets = list.files('output/policypolitics/model_objects/','models')
 model_sets <- model_sets[which(grepl('Purpose',model_sets))]
 model_list_of_lists = lapply(model_sets,function(x) readRDS(paste0(locs,x)))
 
-summary(model_list_of_lists[[1]][[1]]$.args$data$u_Unemp_Rate)
-summary(model_list_of_lists[[1]][[1]]$.args$data$u_Ln_ACRES)
-
-table(!is.na(model_list_of_lists[[1]][[1]]$.args$data$u_forest_id))
-table(!is.na(model_list_of_lists[[1]][[1]]$.args$data$Y[,2]))
 
 
-inla.models()$latent$iid$hyper
 
-length(unique((model_list_of_lists[[1]][[1]]$.args$data$u_forest_id)))
-
-table(is.na(model_list_of_lists[[1]][[1]]$.args$data$Y[,2]))
-
-table(is.na(model_list_of_lists[[1]][[1]]$.args$data$Y[,1]))
-
-uy_ex = model_list_of_lists[[2]][[1]]$.args$data$Y
-uy_rec = model_list_of_lists[[3]][[1]]$.args$data$Y
+uy_ex = model_list_of_lists[[1]][[1]]$.args$data$Y
+uy_rec = model_list_of_lists[[2]][[1]]$.args$data$Y
 
 #correlation between extraction and rec counts
 cor(uy_ex[,1],uy_rec[,1],use = 'pairwise.complete.obs')
@@ -47,15 +39,15 @@ cor(cbind(eu,ey),use = 'pairwise.complete.obs')
 
 #cor(uy_ex[!which(is.na(uy_ex[,1])),1],uy_rec[which(is.na(uy_ex[,1])),2],use = 'pairwise.complete.obs')
 
-
 #modnames = str_remove(str_remove(str_extract(model_sets,'models_[A-Z-a-z_]+'),'models_Type_Purpose'),'models_Type_')
 mod_names = gsub('\\.RDS','',str_remove(model_sets,'models_Type_Purpose_'))
 
+bprior <- list(prior = 'gaussian', param = c(0,1))
 
 allvars = lapply(model_list_of_lists,function(x) sapply(x,function(y) y$model.matrix@Dimnames[[2]]))
 
-intervars = lapply(allvars,function(x) lapply(x,function(y) grep(':',y,value=T)))
 
+intervars = lapply(allvars,function(x) lapply(x,function(y) grep(':',y,value=T)))
 
 for(i in seq_along(intervars)){
   for(j in seq_along(intervars[[i]])){
@@ -69,17 +61,16 @@ for(i in seq_along(intervars)){
       cols = unlist(ivars)
       x1seq = seq(0.05,0.95,0.05)
       x2seq = seq(0.05,0.95,0.05)
-
+     
         u_combos = expand.grid(apply(temp_vars[,ivars[[1]][1],with=F],2,quantile,x1seq),
                                apply(temp_vars[,ivars[[1]][2],with=F],2,quantile,x2seq))
         names(u_combos) = ivars[[1]]
         y_combos = expand.grid(apply(temp_vars[,ivars[[2]][1],with=F],2,quantile,x1seq),
                                apply(temp_vars[,ivars[[2]][2],with=F],2,quantile,x2seq))
         names(y_combos) = ivars[[2]]
-
-      
       lcomb_data = data.table(u_combos,y_combos)
-      
+      lcomb_data = lcomb_data[rowSums(lcomb_data)!=0,]
+    
       l1 = list(lcomb_data[[ivars[[1]][1]]])
       names(l1) <- ivars[[1]][1]
       lcu <- inla.make.lincombs(
@@ -115,15 +106,14 @@ for(i in seq_along(intervars)){
       
       newmodel = inla(formula = model_list_of_lists[[i]][[j]]$.args$formula ,control.compute = list(waic=TRUE,dic=TRUE),
                       c('poisson', 'binomial'),Ntrials = model_list_of_lists[[i]][[j]]$.args$Ntrials,
-                      control.inla= list(#strategy = "gaussian", int.strategy = "eb", 
-                        lincomb.derived.only=FALSE),
+                      #control.inla= list(#strategy = "gaussian", int.strategy = "eb"),
                       #control.family = famcontrol,
                       control.fixed = list(expand.factor.strategy = "inla"),
                       data=model_list_of_lists[[i]][[j]]$.args$data,lincomb = lc,
                       control.update = list(result = model_list_of_lists[[i]][[j]]),
                       control.predictor=list(compute=TRUE),verbose=F)
       
-      lcd = newmodel$summary.lincomb
+      lcd = newmodel$summary.lincomb.derived
       
       lcd$id = rownames(lcd)
       lcd$group = str_extract(lcd$id,'^[u-y]')
@@ -137,7 +127,7 @@ for(i in seq_along(intervars)){
       lcd$x2_quantile = unlist(replicate(2,rep(x2seq,each = nrow(lcd)/2/length(x2seq)),simplify = F))
       
       lcd = cbind(lcd,qvals)
-      
+ 
       axnames = unique(str_remove(names(temp_vars),'^[u-y]_'))
       lcd[[axnames[[1]]]]<-lcomb_data[[names(temp_vars)[1]]]
       lcd[[axnames[[2]]]]<-lcomb_data[[names(temp_vars)[2]]]
@@ -153,6 +143,7 @@ for(i in seq_along(intervars)){
     }
   }
 }
+
 
 fwrite(empty_list,'output/policypolitics/interaction_results.csv')
 
@@ -175,18 +166,8 @@ ext_dt_lcv = ext_dt[!is.na(LCV_annual)& x2_quantile %in% qvals_LCV,]
 ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
 ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
 
-table(is.na(nf$Unemp_Rate),nf$CALENDAR_YEAR)
-quantile(nf$Unemp_Rate,0.05)
 
 
-ext_dt[x1_quantile==0.05&x2_quantile==0.9&!is.na(LCV_annual),]
-exp(0.081)
-exp(-0.157)
-
-exp(0.197)
-exp(-0.411)
-exp(-0.072)
-exp(-0.394)
 ((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'],
        aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
            ymax = `0.975quant`,group = as.factor(x2_quantile),
@@ -349,25 +330,11 @@ exp(0.083)
     scale_colour_colorblind(name = 'annual LCV score',labels=qval_labels_lcv) + 
     guides(fill = F) + 
     ggtitle('# rec./wildlife projects',subtitle ='LCV annual x unemployment %')+
-    theme_bw() + theme(legend.position = c(0.2,0.6),legend.direction = 'vertical',
+    theme_bw() + theme(legend.position = c(0.2,0.2),legend.direction = 'vertical',
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
        filename = paste0('output/policypolitics/figures/interaction_recwildlife_projcount_lcv_vs_unemp.png'))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

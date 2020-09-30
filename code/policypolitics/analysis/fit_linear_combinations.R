@@ -12,11 +12,8 @@ library(ggthemes)
 empty_list = data.table()
 locs = 'output/policypolitics/model_objects/'
 model_sets = list.files('output/policypolitics/model_objects/','models')
-model_sets <- model_sets[which(grepl('Purpose',model_sets))]
+model_sets <- model_sets[which(grepl('Purpose.*Extract.*drop',model_sets))]
 model_list_of_lists = lapply(model_sets,function(x) readRDS(paste0(locs,x)))
-
-
-
 
 uy_ex = model_list_of_lists[[1]][[1]]$.args$data$Y
 uy_rec = model_list_of_lists[[2]][[1]]$.args$data$Y
@@ -70,7 +67,8 @@ for(i in seq_along(intervars)){
         names(y_combos) = ivars[[2]]
       lcomb_data = data.table(u_combos,y_combos)
       lcomb_data = lcomb_data[rowSums(lcomb_data)!=0,]
-    
+
+     # lcomb_data = lcomb_data[u_democrat!=0,]
       l1 = list(lcomb_data[[ivars[[1]][1]]])
       names(l1) <- ivars[[1]][1]
       lcu <- inla.make.lincombs(
@@ -103,10 +101,10 @@ for(i in seq_along(intervars)){
       pc.prec.y = list(prec = list(prior = "pc.prec", param = c(3*y.sdres, 0.01)))
      # famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
       #                  list(prior = "pcprec", param = c(3*y.sdres,0.01)))
-      
+   
       newmodel = inla(formula = model_list_of_lists[[i]][[j]]$.args$formula ,control.compute = list(waic=TRUE,dic=TRUE),
                       c('poisson', 'binomial'),Ntrials = model_list_of_lists[[i]][[j]]$.args$Ntrials,
-                      #control.inla= list(#strategy = "gaussian", int.strategy = "eb"),
+                      # control.inla= list(strategy = "gaussian", int.strategy = "eb"),
                       #control.family = famcontrol,
                       control.fixed = list(expand.factor.strategy = "inla"),
                       data=model_list_of_lists[[i]][[j]]$.args$data,lincomb = lc,
@@ -145,12 +143,12 @@ for(i in seq_along(intervars)){
 }
 
 
-fwrite(empty_list,'output/policypolitics/interaction_results.csv')
+fwrite(empty_list,'output/policypolitics/interaction_results_withdrops.csv')
 
 
 #empty_list$outcome = name_matcher$outcome[match(empty_list$i,name_matcher$i)]
 
-empty_list = fread('output/policypolitics/interaction_results.csv')
+empty_list = fread('output/policypolitics/interaction_results_withdrops.csv')
 
 #qvals = c('0.05','0.25','0.5','0.75','0.95')
 qvals_LCV = c('0.05','0.95')
@@ -159,14 +157,15 @@ qvals_demVS = c('0.05','0.95')
 qval_labels_dmVS = c('15%','65%')
 qvals_Dem = c(0.05,0.90)
 qval_labels_DEM = c('Republican','Democrat')
-ext_dt = empty_list[DV=='Extractive',]
+
+
+
+ext_dt = empty_list[DV=='Extractive.withdrops',]
 ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 
 ext_dt_lcv = ext_dt[!is.na(LCV_annual)& x2_quantile %in% qvals_LCV,]
 ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
 ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
-
-
 
 ((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'],
        aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
@@ -188,7 +187,7 @@ ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))))
 
 ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_lcv_vs_unemp.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_lcv_vs_unemp.withdrops.png'))
 
 
 (gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses",],
@@ -211,7 +210,7 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_lcv_vs_unemp.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_lcv_vs_unemp.withdrops.png'))
 
 
 (gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=='Project count',],
@@ -233,7 +232,7 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_percentD_H_vs_unemp.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_percentD_H_vs_unemp.withdrops.png'))
 
 
 
@@ -255,7 +254,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_percentD_H_vs_unemp.withdrops.png'))
 
 
 (gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',],
@@ -276,7 +275,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction.withdrops.png'))
 
 
 
@@ -299,7 +298,7 @@ gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=="CE/total NEPA a
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction.withdrops.png'))
 
 
 
@@ -334,7 +333,7 @@ exp(0.083)
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_recwildlife_projcount_lcv_vs_unemp.png'))
+       filename = paste0('output/policypolitics/figures/interaction_recwildlife_projcount_lcv_vs_unemp.withdrops.png'))
 
 
 
@@ -361,7 +360,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
 #                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 # ggsave(gg_lcv_vs_unemp_rec_wildlife,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_lcv_vs_unemp_rec_wildlife.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_lcv_vs_unemp_rec_wildlife.withdrops.png'))
 # 
 # gg_percentD_H_vs_unemp_rec_wildlife = ggplot(data = rec_dt_dem,
 #                                            aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
@@ -377,7 +376,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
 #                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 # ggsave(gg_percentD_H_vs_unemp_rec_wildlife,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_percentD_H_vs_unemp_rec_wildlife.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_percentD_H_vs_unemp_rec_wildlife.withdrops.png'))
 # 
 # 
 # rec_side_by_side_dt = empty_list[DV=='Recreation_Wildlife'&group == 'Project count',]
@@ -397,7 +396,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #   theme_bw() + theme(legend.position = c(0.35,0.15),legend.direction = 'vertical',
 #                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 # ggsave(gg_rec_side_by_side,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_rec_wildlife.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_rec_wildlife.withdrops.png'))
 # 
 # 
 # 
@@ -419,7 +418,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 # 
 # ggsave(gg_lcv_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_lcv_ext_vs_rec.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_lcv_ext_vs_rec.withdrops.png'))
 # 
 # 
 # 
@@ -442,7 +441,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 # 
 # ggsave(gg_lcv_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_lcv_ext_vs_rec.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_lcv_ext_vs_rec.withdrops.png'))
 # 
 # 
 # demvote_unemp_side_by_side_dt = empty_list[group == 'Project count'&is.na(LCV_annual)&DV!='All',]
@@ -463,7 +462,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 # 
 # ggsave(gg_demvote_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_demvote_ext_vs_rec.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_demvote_ext_vs_rec.withdrops.png'))
 # 
 # 
 # 
@@ -487,7 +486,7 @@ ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
 #                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 # 
 # ggsave(gg_demvote_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_demvote_ext_vs_rec.png'))
+#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_demvote_ext_vs_rec.withdrops.png'))
 # 
 # 
 

@@ -11,21 +11,24 @@
   if(!require(sf)){install.packages('sf');library(sf)}
   
   td = tempdir()
-  albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-  
-  admin_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
-  tf = tempfile(tmpdir=td, fileext=".zip")
-  download.file(admin_url, tf)
-  fname = unzip(tf, list=TRUE)
-  unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-  fpath = file.path(td, grep('shp$',fname$Name,value=T))
-  admin_districts <- st_read(fpath)
-  admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
+  # albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+  # 
+  # admin_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
+  # tf = tempfile(tmpdir=td, fileext=".zip")
+  # download.file(admin_url, tf)
+  # fname = unzip(tf, list=TRUE)
+  # unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
+  # fpath = file.path(td, grep('shp$',fname$Name,value=T))
+  # admin_districts <- st_read(fpath)
+  # admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
   # fix bad polygons
   
+  # bad_polys = !st_is_valid(admin_districts)
+  #  admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
+  
+  admin_districts <- readRDS('scratch/admin_units_clean.RDS')
+  
 
-  bad_polys = !st_is_valid(admin_districts)
-  admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
   
   admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
   admin_districts$FOREST_ID = admin_districts$FORESTORGC
@@ -33,19 +36,19 @@
   file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
   locs = 'output/policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name = c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
-  model_sets = list.files('output/policypolitics/model_objects/','Purpose')
+  model_sets = list.files('output/policypolitics/model_objects/','Purpose.*Ext.*drop')
   model_names = str_remove(model_sets,'models_Type_Purpose_')
-  
+
   mod_name_sets = list(#grep('noCX_activities',model_sets,value = T),
   #intersect(grep('activities',model_sets,value = T,invert = T),grep('noCX',model_sets,value = T,invert = F)),
   intersect(grep('activities',model_sets,value = T,invert = T),grep('noCX',model_sets,value = T,invert = T)))
   #intersect(grep('activities',model_sets,value = T,invert = F),grep('noCX',model_sets,value = T,invert = T)))
   
-  
+
   names(mod_name_sets) <- c('')
 
   # lapply(seq_along(mod_name_sets),function(mod){
-
+  mod = 1
   model_list_of_lists = lapply(mod_name_sets[[mod]],function(x) readRDS(paste0(locs,x)))
   names(model_list_of_lists) <- mod_name_sets[[mod]]
 
@@ -150,7 +153,7 @@ htmlTable::htmlTable(simple_table[order(coef,)])
   
   htmlTable::htmlTable( simple_table[order(coef,)])
   
-  
+
   HTML(coef_cast1, file = paste0('output/policypolitics/tables/extractive_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
   HTML(coef_cast2, file = paste0('output/policypolitics/tables/extractive_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
   
@@ -211,8 +214,9 @@ coef_results$sig <- (!(coef_results$`0.025quant`<0 & coef_results$`0.975quant`>0
 
 
 base_coefs = coef_results[specification%in%'Annual LCV score',]
-base_coefs$DV <- ifelse(grepl('All',base_coefs$DV),'All',ifelse(grepl('Recreat',base_coefs$DV),'Wildlife/recreation','Extractive'))
+#base_coefs$DV <- ifelse(grepl('All',base_coefs$DV),'All',ifelse(grepl('Recreat',base_coefs$DV),'Wildlife/recreation','Extractive'))
 
+base_coefs$DV <- ifelse(grepl('nodrops',base_coefs$DV),'No drops','w/ drops')
 #base_coefs$specification = ifelse(base_coefs$specification==1,'Restricted model','w/ national leadership')
 base_all = ggplot(base_coefs,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                                                                          y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
@@ -231,6 +235,7 @@ base_all = ggplot(base_coefs,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Predicing projects by forest and Congress') +
   NULL
+
 
 ggsave(base_all,filename = paste0('output/policypolitics/figures/coefplot_compare_projtypes',names(mod_name_sets)[[mod]],'.png'),dpi = 300,width = 7.5,height = 7,units = 'in')
 
@@ -259,14 +264,15 @@ extract_coefs = coef_results[grepl("Extract",DV),]
 #   ggtitle('Extractive projects') +
 #   NULL
 # 
-# ggsave(test,filename = 'test.png',dpi = 300,height = 6,width= 6,units = 'in')
+# ggsave(test,filename = 'test.withdrops.png',dpi = 300,height = 6,width= 6,units = 'in')
 
 
 variations = c('LCV','Dem. rep','% dem')
 varnames = c('LCV','demRep','demVote')
 
+
 lapply(seq_along(variations),function(x) {
-extract_comp = ggplot(extract_coefs[grepl(variations[x],specification),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
+extract_comp = ggplot(extract_coefs[grepl(variations[x],specification)&grepl('withdrops',DV),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                                  y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
   geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
   geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
@@ -286,7 +292,7 @@ extract_comp = ggplot(extract_coefs[grepl(variations[x],specification),],aes(x =
   ggtitle('Extractive projects') +
   NULL
 
-ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],names(mod_name_sets)[[mod]],'.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],names(mod_name_sets)[[mod]],'.withdrops.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
 })
 
 
@@ -308,7 +314,7 @@ temp$specification = 'Posterior estimates'
           legend.background = element_rect(fill = NA),
           axis.text = element_text(size = 12),strip.text = element_text(size = 12),
           legend.text = element_text(size = 12),legend.title = element_blank()) +
-    scale_x_continuous(name = '95% credible interval',limits = c(-0.8,0.8)) + 
+    scale_x_continuous(name = '95% credible interval',limits = c(-0.9,0.9)) + 
     # scale_shape_manual(values = c(19,21))
     #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
     #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
@@ -317,7 +323,7 @@ temp$specification = 'Posterior estimates'
     guides(shape = FALSE,fill = FALSE) + 
     ggtitle('Extractive projects') +
     NULL)
-ggsave(plot = lcv1,filename = 'output/policypolitics/figures/coefplot_LCV_linear.png',
+ggsave(plot = lcv1,filename = 'output/policypolitics/figures/coefplot_LCV_linear.withdrops.png',
        width = 5,height =6, units = 'in',dpi = 300)
 
 
@@ -339,7 +345,7 @@ temp$specification = 'Posterior estimates'
      legend.background = element_rect(fill = NA),
         axis.text = element_text(size = 12),strip.text = element_text(size = 12),
         legend.text = element_text(size = 12),legend.title = element_blank()) +
-  scale_x_continuous(name = '95% credible interval',limits = c(-0.8,0.8)) + 
+  scale_x_continuous(name = '95% credible interval',limits = c(-0.9,0.9)) + 
   # scale_shape_manual(values = c(19,21))
   #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
   #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
@@ -348,7 +354,7 @@ temp$specification = 'Posterior estimates'
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Extractive projects') +
   NULL)
-ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_interaction.png',
+ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_interaction.withdrops.png',
        width = 5,height =6, units = 'in',dpi = 300)
 
 # 
@@ -371,35 +377,35 @@ ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_intera
 #     ggtitle('All projects') +
 #     NULL
 # 
-# ggsave(all_comp,filename = paste0('output/policypolitics/figures/coefplot_allprojects',names(mod_name_sets)[[mod]],'.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
+# ggsave(all_comp,filename = paste0('output/policypolitics/figures/coefplot_allprojects',names(mod_name_sets)[[mod]],'.withdrops.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
 # 
-
-wildlife_coefs = coef_results[grepl("Wild",DV),]
-
-lapply(seq_along(variations),function(x) {
-wildlifecomp = ggplot(wildlife_coefs[grepl(variations[x],specification),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
-                                 y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
-    geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
-    geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
-    geom_point(position = position_dodgev(0.5),pch = 19,size = 1.5) + 
-    geom_point(position = position_dodgev(0.5),pch = 21,size = 1.5) + 
-    facet_grid(~specification,scales = 'fixed') + theme_bw() + 
-  theme(legend.position = 'bottom',axis.title.y = element_blank(),
-        axis.text = element_text(size = 12),strip.text = element_text(size = 12),
-        legend.text = element_text(size = 12)) +scale_x_continuous(name = '95% credible interval') + 
-    # scale_shape_manual(values = c(19,21))
-    #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
-    #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
-    scale_fill_manual(values = c('white',NA)) + 
-    scale_color_tableau(name = 'Stage',labels =  c('procedural','distributive')) + 
-    guides(shape = FALSE,fill = FALSE) + 
-    ggtitle('Wildlife/rec. projects') +
-    NULL
-
-ggsave(wildlifecomp,filename = paste0('output/policypolitics/figures/coefplot_wildlife_',varnames[x],names(mod_name_sets)[[mod]],'.png'),dpi = 300,width = 7,height = 8,units = 'in')
-})
-
-
+# 
+# wildlife_coefs = coef_results[grepl("Wild",DV),]
+# 
+# lapply(seq_along(variations),function(x) {
+# wildlifecomp = ggplot(wildlife_coefs[grepl(variations[x],specification),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
+#                                  y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
+#     geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
+#     geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
+#     geom_point(position = position_dodgev(0.5),pch = 19,size = 1.5) + 
+#     geom_point(position = position_dodgev(0.5),pch = 21,size = 1.5) + 
+#     facet_grid(~specification,scales = 'fixed') + theme_bw() + 
+#   theme(legend.position = 'bottom',axis.title.y = element_blank(),
+#         axis.text = element_text(size = 12),strip.text = element_text(size = 12),
+#         legend.text = element_text(size = 12)) +scale_x_continuous(name = '95% credible interval') + 
+#     # scale_shape_manual(values = c(19,21))
+#     #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
+#     #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
+#     scale_fill_manual(values = c('white',NA)) + 
+#     scale_color_tableau(name = 'Stage',labels =  c('procedural','distributive')) + 
+#     guides(shape = FALSE,fill = FALSE) + 
+#     ggtitle('Wildlife/rec. projects') +
+#     NULL
+# 
+# ggsave(wildlifecomp,filename = paste0('output/policypolitics/figures/coefplot_wildlife_',varnames[x],names(mod_name_sets)[[mod]],'.withdrops.png'),dpi = 300,width = 7,height = 8,units = 'in')
+# })
+# 
+# 
 
 
 temp = rbind(model_list_of_lists[[1]][[1]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
@@ -419,7 +425,7 @@ forest_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Extractive projects') 
-ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_forest_extraction.png',width = 8,height = 12,units = 'in',dpi = 300)
+ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_forest_extraction.withdrops.png',width = 8,height = 12,units = 'in',dpi = 300)
 
 
 
@@ -441,7 +447,7 @@ forest_re =  ggplot(data = temp) +
         axis.ticks = element_blank(),axis.text.y = element_text(angle = 45)) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Wildlife/recreation projects') 
-ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_forest_rec_wildlife.png',width = 9,height = 10,units = 'in',dpi = 300)
+ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_forest_rec_wildlife.withdrops.png',width = 9,height = 10,units = 'in',dpi = 300)
 
 forest_re
 
@@ -456,7 +462,7 @@ congress_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by Congress',subtitle = 'Extractive projects') 
-ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_extraction.png',width = 4,height = 6,units = 'in',dpi = 300)
+ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_extraction.withdrops.png',width = 4,height = 6,units = 'in',dpi = 300)
 
 
 temp = rbind(model_list_of_lists[[2]][[1]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
@@ -469,7 +475,7 @@ congress_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by Congress',subtitle = 'Wildlife/recreation projects') 
-ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_rec_wildlife.png',width = 4,height = 6,units = 'in',dpi = 300)
+ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_rec_wildlife.withdrops.png',width = 4,height = 6,units = 'in',dpi = 300)
 
 
 

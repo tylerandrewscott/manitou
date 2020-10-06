@@ -12,7 +12,7 @@ library(ggthemes)
 empty_list = data.table()
 locs = 'output/policypolitics/model_objects/'
 model_sets = list.files('output/policypolitics/model_objects/','models')
-model_sets <- model_sets[which(grepl('Purpose.*Extract.*drop',model_sets))]
+model_sets <- model_sets[which(grepl('Purpose.*Extract',model_sets))]
 model_list_of_lists = lapply(model_sets,function(x) readRDS(paste0(locs,x)))
 
 uy_ex = model_list_of_lists[[1]][[1]]$.args$data$Y
@@ -137,6 +137,7 @@ for(i in seq_along(intervars)){
       lcd$i = i
       lcd$j = j
       lcd$DV <- mod_names[i]
+      lcd$form <-  names(model_list_of_lists[[i]])[j]
       empty_list = rbind(empty_list,lcd,fill = T,use.names = T)
     }
   }
@@ -160,14 +161,14 @@ qval_labels_DEM = c('Republican','Democrat')
 
 
 
-ext_dt = empty_list[DV=='Extractive.withdrops',]
+ext_dt = empty_list[DV=='Extractive',]
 ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 
 ext_dt_lcv = ext_dt[!is.na(LCV_annual)& x2_quantile %in% qvals_LCV,]
 ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
 ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
 
-((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'],
+((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'&!grepl('alt',form)],
        aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
            ymax = `0.975quant`,group = as.factor(x2_quantile),
            col = as.factor(x2_quantile)))  + 
@@ -187,10 +188,10 @@ ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))))
 
 ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_lcv_vs_unemp.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_lcv_vs_unemp.png'))
 
 
-(gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses",],
+(gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses"&!grepl('alt',form),],
                                      aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
                                          ymax = `0.975quant`,group = as.factor(x2_quantile),
                                          col = as.factor(x2_quantile)))  + 
@@ -210,7 +211,7 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_lcv_vs_unemp.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_lcv_vs_unemp.png'))
 
 
 (gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=='Project count',],

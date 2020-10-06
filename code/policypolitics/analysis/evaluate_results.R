@@ -27,30 +27,22 @@
   #  admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
   
   admin_districts <- readRDS('scratch/admin_units_clean.RDS')
-  
 
-  
   admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
   admin_districts$FOREST_ID = admin_districts$FORESTORGC
   admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
   file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
   locs = 'output/policypolitics/model_objects/'
-  spec_names = data.table(specification = 1:6,name = c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
-  model_sets = list.files('output/policypolitics/model_objects/','Purpose.*Ext.*drop')
+  spec_names = data.table(specification = rep(1:12,2),name =rep( c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'),2))
+  model_sets = list.files('output/policypolitics/model_objects/','Purpose.*Ext')
   model_names = str_remove(model_sets,'models_Type_Purpose_')
-
-  mod_name_sets = list(#grep('noCX_activities',model_sets,value = T),
-  #intersect(grep('activities',model_sets,value = T,invert = T),grep('noCX',model_sets,value = T,invert = F)),
-  intersect(grep('activities',model_sets,value = T,invert = T),grep('noCX',model_sets,value = T,invert = T)))
-  #intersect(grep('activities',model_sets,value = T,invert = F),grep('noCX',model_sets,value = T,invert = T)))
-  
-
-  names(mod_name_sets) <- c('')
 
   # lapply(seq_along(mod_name_sets),function(mod){
   mod = 1
-  model_list_of_lists = lapply(mod_name_sets[[mod]],function(x) readRDS(paste0(locs,x)))
-  names(model_list_of_lists) <- mod_name_sets[[mod]]
+  
+  mod_list = readRDS(paste0('output/policypolitics/model_objects/models_Type_Purpose_Extractive.RDS'))
+  
+  model_list_of_lists = readRDS(paste0(locs,model_sets))
 
   temp = (model_list_of_lists$models_Type_Purpose_Extractive.RDS[[2]])
  congressA = ggplot(temp$summary.random$u_congress_id ,aes(x = as.factor(ID),y = mean,ymin = `0.025quant`,ymax = `0.975quant`)) + geom_point() + geom_errorbar() + theme_bw() +
@@ -74,15 +66,15 @@
   coef_df_s1 = coef_df[grepl('Extr',DV),.(coef,cred,mod)][grepl('^u|mu\\.u',coef),]
   coef_df_s2 = coef_df[grepl('Extr',DV),.(coef,cred,mod)][!grepl('^u|mu\\.u',coef),]
   
-  coef_df_s3 = coef_df[grepl('Rec',DV),.(coef,cred,mod)][grepl('^u|mu\\.u',coef),]
-  coef_df_s4 = coef_df[grepl('Rec',DV),.(coef,cred,mod)][!grepl('^u|mu\\.u',coef),]
+  #coef_df_s3 = coef_df[grepl('Rec',DV),.(coef,cred,mod)][grepl('^u|mu\\.u',coef),]
+  #coef_df_s4 = coef_df[grepl('Rec',DV),.(coef,cred,mod)][!grepl('^u|mu\\.u',coef),]
   
 
   coef_df$coef <- fct_inorder(coef_df$coef)
   coef_cast1 = dcast(coef_df_s1,coef ~ mod,value.var = 'cred',fill = '---')
   coef_cast2 = dcast(coef_df_s2,coef ~ mod,value.var = 'cred',fill = '---')
-  coef_cast3 = dcast(coef_df_s3,coef ~ mod,value.var = 'cred',fill = '---')
-  coef_cast4 = dcast(coef_df_s4,coef ~ mod,value.var = 'cred',fill = '---')
+  #coef_cast3 = dcast(coef_df_s3,coef ~ mod,value.var = 'cred',fill = '---')
+  #coef_cast4 = dcast(coef_df_s4,coef ~ mod,value.var = 'cred',fill = '---')
   library(R2HTML)
   
   simple_table = cbind(coef_cast1[,c(1:3)],  coef_cast2[,c(2:3)])
@@ -119,50 +111,51 @@
 
 htmlTable::htmlTable(simple_table[order(coef,)])
 
-
-  simple_table = cbind(coef_cast3[,c(1:3)],  coef_cast4[,c(2:3)])
-  simple_table$coef <- gsub('^y_|^u_','',simple_table$coef )
-  simple_table$coef <- gsub(':y_|:u_','x',simple_table$coef )
-  simple_table$coef = as.factor(simple_table$coef)
-
-  simple_table$coef = fct_recode(simple_table$coef, '(intercept)' = 'mu.u',
-                                 '% wilderness area' = 'Wilderness_Perc',
-                                 '% dem. vote share' = 'percentD_H',
-                                 '% housing in WUI' = 'Perc_WUI_Housing',
-                                 '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
-                                 '% burned (last 5 years)'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
-                                 'Unemployment %' = 'Unemp_Rate','% extraction employ.' = 'Perc_Extraction_Employ',
-                                 'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS','ln(county NR GDP ($1M))' = 'ln_County_naturalresource_GDP_1M',
-                                 'ln(avg. board feet, 1999 to 2004)' = "Ln_Avg_MBF_Cut_1999_2004" ,
-                                 'NEPA grazing actions, 1993 to 2004' = "ALLOTMENT_NEPA_1993_2004",
-                                 'Mining claim actions, 1993 to 2004' = "MINING_CLAIM_ACTIONS_1993_2004" ,
-                                 'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
-                                 "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
-                                 'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
-                                 'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual',
-                                 'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
-  simple_table$coef  = fct_relevel( simple_table$coef ,'(intercept)','ln(forest acreage)','ln(yearly visitation)',
-                                    'ln(avg. board feet, 1999 to 2004)' ,
-                                    'NEPA grazing actions, 1993 to 2004' ,
-                                    'Mining claim actions, 1993 to 2004',
-                                    '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
-                                    '% extraction employ.','ln(county NR GDP ($1M))',
-                                    'Democratic president','Democratic congress',
-                                    '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
-                                    "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
-  
-  htmlTable::htmlTable( simple_table[order(coef,)])
-  
+# 
+#   simple_table = cbind(coef_cast3[,c(1:3)],  coef_cast4[,c(2:3)])
+#   simple_table$coef <- gsub('^y_|^u_','',simple_table$coef )
+#   simple_table$coef <- gsub(':y_|:u_','x',simple_table$coef )
+#   simple_table$coef = as.factor(simple_table$coef)
+# 
+#   simple_table$coef = fct_recode(simple_table$coef, '(intercept)' = 'mu.u',
+#                                  '% wilderness area' = 'Wilderness_Perc',
+#                                  '% dem. vote share' = 'percentD_H',
+#                                  '% housing in WUI' = 'Perc_WUI_Housing',
+#                                  '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
+#                                  '% burned (last 5 years)'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
+#                                  'Unemployment %' = 'Unemp_Rate','% extraction employ.' = 'Perc_Extraction_Employ',
+#                                  'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS','ln(county NR GDP ($1M))' = 'ln_County_naturalresource_GDP_1M',
+#                                  'ln(avg. board feet, 1999 to 2004)' = "Ln_Avg_MBF_Cut_1999_2004" ,
+#                                  'NEPA grazing actions, 1993 to 2004' = "ALLOTMENT_NEPA_1993_2004",
+#                                  'Mining claim actions, 1993 to 2004' = "MINING_CLAIM_ACTIONS_1993_2004" ,
+#                                  'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
+#                                  "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
+#                                  'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
+#                                  'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual',
+#                                  'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
+#   simple_table$coef  = fct_relevel( simple_table$coef ,'(intercept)','ln(forest acreage)','ln(yearly visitation)',
+#                                     'ln(avg. board feet, 1999 to 2004)' ,
+#                                     'NEPA grazing actions, 1993 to 2004' ,
+#                                     'Mining claim actions, 1993 to 2004',
+#                                     '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
+#                                     '% extraction employ.','ln(county NR GDP ($1M))',
+#                                     'Democratic president','Democratic congress',
+#                                     '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
+#                                     "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
+#   
+#   htmlTable::htmlTable( simple_table[order(coef,)])
+#   
 
   HTML(coef_cast1, file = paste0('output/policypolitics/tables/extractive_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
   HTML(coef_cast2, file = paste0('output/policypolitics/tables/extractive_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
+  # 
+  # HTML(coef_cast3, file = paste0('output/policypolitics/tables/recreation_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
+  # HTML(coef_cast4, file = paste0('output/policypolitics/tables/recreation_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
+  # 
   
-  HTML(coef_cast3, file = paste0('output/policypolitics/tables/recreation_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
-  HTML(coef_cast4, file = paste0('output/policypolitics/tables/recreation_coefs',names(mod_name_sets[mod]),'.html'),row.names = F)
   
-  coef_results = rbindlist(lapply(seq_along(model_list_of_lists),function(m){
-  rbindlist(lapply(seq_along(model_list_of_lists[[m]]),function(x) model_list_of_lists[[m]][[x]]$summary.fixed[,c(1,3,5)] %>%
-                     mutate(specification = x,coef = rownames(.),  DV = mod_name_sets[[mod]][m])))}))
+  coef_results = rbindlist(lapply(seq_along(model_list_of_lists),function(x) model_list_of_lists[[x]]$summary.fixed[,c(1,3,5)] %>%
+           mutate(specification = x,coef = rownames(.),  form =   names(model_list_of_lists)[x])))
   
   coef_results = coef_results[!coef%in%c('mu.u','mu.y')]
   #coef_results = coef_results[specification!=3,]
@@ -216,7 +209,11 @@ coef_results$sig <- (!(coef_results$`0.025quant`<0 & coef_results$`0.975quant`>0
 base_coefs = coef_results[specification%in%'Annual LCV score',]
 #base_coefs$DV <- ifelse(grepl('All',base_coefs$DV),'All',ifelse(grepl('Recreat',base_coefs$DV),'Wildlife/recreation','Extractive'))
 
-base_coefs$DV <- ifelse(grepl('nodrops',base_coefs$DV),'No drops','w/ drops')
+
+
+base_coefs$DV <- ifelse(grepl('alt',base_coefs$form),'receipts','no receipts')
+
+
 #base_coefs$specification = ifelse(base_coefs$specification==1,'Restricted model','w/ national leadership')
 base_all = ggplot(base_coefs,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                                                                          y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
@@ -237,9 +234,9 @@ base_all = ggplot(base_coefs,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant
   NULL
 
 
-ggsave(base_all,filename = paste0('output/policypolitics/figures/coefplot_compare_projtypes',names(mod_name_sets)[[mod]],'.png'),dpi = 300,width = 7.5,height = 7,units = 'in')
+ggsave(base_all,filename = paste0('output/policypolitics/figures/coefplot_compare_withreceipts','.png'),dpi = 300,width = 7.5,height = 7,units = 'in')
 
-extract_coefs = coef_results[grepl("Extract",DV),]
+extract_coefs = coef_results
 # 
 # extract_coefs2$CX = 1
 # extract_coefs$CX = 0
@@ -270,9 +267,13 @@ extract_coefs = coef_results[grepl("Extract",DV),]
 variations = c('LCV','Dem. rep','% dem')
 varnames = c('LCV','demRep','demVote')
 
-
 lapply(seq_along(variations),function(x) {
-extract_comp = ggplot(extract_coefs[grepl(variations[x],specification)&grepl('withdrops',DV),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
+  x = 1
+  
+  extract_coefs[grepl(variations[x],specification),]$form
+
+  
+  extract_comp = ggplot(extract_coefs[form %in% c('form0alt','form0xalt'),],aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                                  y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
   geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
   geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
@@ -291,12 +292,11 @@ extract_comp = ggplot(extract_coefs[grepl(variations[x],specification)&grepl('wi
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Extractive projects') +
   NULL
-
-ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],names(mod_name_sets)[[mod]],'.withdrops.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],'.receipts.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
 })
 
 
-temp = extract_coefs[grepl('Annual LCV',specification),]
+temp = extract_coefs[grepl('Annual LCV',specification)&!grepl('alt',form),]
 temp$specification = 'Posterior estimates'
 (lcv1 = ggplot(temp,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                         y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
@@ -323,12 +323,14 @@ temp$specification = 'Posterior estimates'
     guides(shape = FALSE,fill = FALSE) + 
     ggtitle('Extractive projects') +
     NULL)
-ggsave(plot = lcv1,filename = 'output/policypolitics/figures/coefplot_LCV_linear.withdrops.png',
+ggsave(plot = lcv1,filename = 'output/policypolitics/figures/coefplot_LCV_linear.png',
        width = 5,height =6, units = 'in',dpi = 300)
 
 
 temp = extract_coefs[grepl('LCV x',specification),]
 temp$specification = 'Posterior estimates'
+
+
 (lcv2 = ggplot(temp,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
                                                                     y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
   geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
@@ -354,7 +356,7 @@ temp$specification = 'Posterior estimates'
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Extractive projects') +
   NULL)
-ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_interaction.withdrops.png',
+ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_interaction.png',
        width = 5,height =6, units = 'in',dpi = 300)
 
 # 

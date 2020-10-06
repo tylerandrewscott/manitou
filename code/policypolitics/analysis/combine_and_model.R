@@ -48,6 +48,7 @@ admin_districts <- readRDS('scratch/admin_units_clean.RDS')
 drop_sites = c("Savannah River Site" ,'El Yunque National Forest',
             "Land Between the Lakes National Recreation Area" ,  "Columbia River Gorge National Scenic Area" ,"Midewin National Tallgrass Prairie" )
 drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNAME)]
+
 system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
 system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
 file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
@@ -377,7 +378,8 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
     f(y_region_id,model = 'iid',hyper = pc.prec.y) +
     f(y_state_id,model = 'iid',hyper = pc.prec.y) +
     u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
-   # u_ln_Receipts_Extraction_1M_P4 + u_ln_Receipts_Recreation_1M_P4 +
+  #  u_ln_Receipts_Extraction_1M_P4 + 
+    #u_ln_Receipts_Recreation_1M_P4 +
   #  u_Total_Receipts_4yr_Change_Perc +
     u_Ln_ACRES + u_Wilderness_Perc + 
     u_Burned_Perc_Past5yrs  + 
@@ -388,7 +390,8 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
     u_LCV_annual + 
     mu.y +
     y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
-  #  y_ln_Receipts_Extraction_1M_P4 + y_ln_Receipts_Recreation_1M_P4 +
+   # y_ln_Receipts_Extraction_1M_P4 + 
+  # y_ln_Receipts_Recreation_1M_P4 +
   #  y_Total_Receipts_4yr_Change_Perc +
     y_Ln_ACRES + y_Wilderness_Perc + 
     y_Burned_Perc_Past5yrs  + 
@@ -397,12 +400,20 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
     y_demPres + y_demCongress +
     y_mrp_mean +
     y_LCV_annual 
-
+  
   form0x = update.formula(form0, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
   form1 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
   form1x = update.formula(form1, ~ . + u_Unemp_Rate:u_percentD_H + y_Unemp_Rate:y_percentD_H)
   form2 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
   form2x =  update.formula(form2, ~ . + u_Unemp_Rate:u_democrat + y_Unemp_Rate:y_democrat)
+  
+  form0alt = update.formula(form0, ~ . + u_ln_Receipts_Extraction_1M_P4 + y_ln_Receipts_Extraction_1M_P4)
+  form0xalt = update.formula(form0alt, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
+  form1alt = update.formula(form0alt, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
+  form1xalt = update.formula(form1alt, ~ . + u_Unemp_Rate:u_percentD_H + y_Unemp_Rate:y_percentD_H)
+  form2alt = update.formula(form0alt, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
+  form2xalt =  update.formula(form2alt, ~ . + u_Unemp_Rate:u_democrat + y_Unemp_Rate:y_democrat)
+
 
 list_of_forms = grep('form[0-9]',ls(),value=T)
 raw_vars = unlist(lapply(list_of_forms,function(x)  grep('^u_',str_split(as.character(get(x)[[3]])[2],pattern = '\\s\\+\\s')[[1]],value=T) ))
@@ -677,10 +688,10 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
 
 subtypes = grep('Extract',subtypes,value = T)
 
-subtypes
-list_of_results = lapply(subtypes,function(mod) {
 
-  idat = makeIDAT(mod = mod,nf = nf,project_type_counts_for_model = counts_by_type)
+#list_of_results = lapply(subtypes,function(mod) {
+
+  idat = makeIDAT(mod = subtypes,nf = nf,project_type_counts_for_model = counts_by_type)
   #  temp = merge(temp,all_combos,all=T)
   #  temp$N[is.na(temp$N)] <- 0
   #y_lik <- log(idat$y/idat$u)
@@ -719,10 +730,10 @@ list_of_results = lapply(subtypes,function(mod) {
                                                                   control.results = cres,
                                                                   data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE,config = TRUE),
                                                                   control.predictor=list(compute=TRUE),verbose=F)})
-  
+  names(mod_list) <- list_of_forms
   #fixef_results = lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.),form = x,mod = mod))
-  saveRDS(mod_list,paste0('output/policypolitics/model_objects/models_',mod,'.nodrops.RDS'))
-})
+  saveRDS(mod_list,paste0('output/policypolitics/model_objects/models_',subtypes,'.RDS'))
+
 
 
 # waic_scores = data.table(sapply(list_of_results,function(x) sapply(x,function(y) y$waic$waic)))

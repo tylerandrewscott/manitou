@@ -366,8 +366,6 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
 
 
 
-
-
   form0 = Y ~ 0 + mu.u + 
     f(u_forest_id,model = 'iid',hyper = pc.prec.u) + 
     f(u_congress_id,model = 'iid',hyper = pc.prec.u) + 
@@ -378,7 +376,7 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
     f(y_region_id,model = 'iid',hyper = pc.prec.y) +
     f(y_state_id,model = 'iid',hyper = pc.prec.y) +
     u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
-  #  u_ln_Receipts_Extraction_1M_P4 + 
+    u_ln_Receipts_Extraction_1M_P4 + 
     #u_ln_Receipts_Recreation_1M_P4 +
   #  u_Total_Receipts_4yr_Change_Perc +
     u_Ln_ACRES + u_Wilderness_Perc + 
@@ -390,9 +388,7 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
     u_LCV_annual + 
     mu.y +
     y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
-   # y_ln_Receipts_Extraction_1M_P4 + 
-  # y_ln_Receipts_Recreation_1M_P4 +
-  #  y_Total_Receipts_4yr_Change_Perc +
+    y_ln_Receipts_Extraction_1M_P4 + 
     y_Ln_ACRES + y_Wilderness_Perc + 
     y_Burned_Perc_Past5yrs  + 
     y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species + 
@@ -407,15 +403,8 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
   form2 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
   form2x =  update.formula(form2, ~ . + u_Unemp_Rate:u_democrat + y_Unemp_Rate:y_democrat)
   
-  form0alt = update.formula(form0, ~ . + u_ln_Receipts_Extraction_1M_P4 + y_ln_Receipts_Extraction_1M_P4)
-  form0xalt = update.formula(form0alt, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
-  form1alt = update.formula(form0alt, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
-  form1xalt = update.formula(form1alt, ~ . + u_Unemp_Rate:u_percentD_H + y_Unemp_Rate:y_percentD_H)
-  form2alt = update.formula(form0alt, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
-  form2xalt =  update.formula(form2alt, ~ . + u_Unemp_Rate:u_democrat + y_Unemp_Rate:y_democrat)
 
-
-list_of_forms = grep('form[0-9]',ls(),value=T)
+list_of_forms = grep('form[0-2]',ls(),value=T)
 raw_vars = unlist(lapply(list_of_forms,function(x)  grep('^u_',str_split(as.character(get(x)[[3]])[2],pattern = '\\s\\+\\s')[[1]],value=T) ))
 library(matrixStats)
 uvars = grep('^u_',raw_vars,value = T)
@@ -751,7 +740,6 @@ subtypes = grep('Extract',subtypes,value = T)
 # if('CE' %in% keep_decisions & keep_activities ){fwrite(waic_scores,'output/policypolitics/tables/waic_table_activities.csv')}
 # if(!'CE' %in% keep_decisions & keep_activities){fwrite(waic_scores,'output/policypolitics/tables/waic_table_noCE_activities.csv')}
 # 
-
 
 
 lcv_vs_unemp = ggplot(nf,aes(x = LCV_annual,y = Unemp_Rate)) + geom_point(pch = 21,alpha = 0.5) + theme_bw() + 

@@ -144,12 +144,12 @@ for(i in seq_along(intervars)){
 }
 
 
-fwrite(empty_list,'output/policypolitics/interaction_results_withdrops.csv')
+fwrite(empty_list,'output/policypolitics/interaction_results.csv')
 
 
 #empty_list$outcome = name_matcher$outcome[match(empty_list$i,name_matcher$i)]
 
-empty_list = fread('output/policypolitics/interaction_results_withdrops.csv')
+empty_list = fread('output/policypolitics/interaction_results.csv')
 
 #qvals = c('0.05','0.25','0.5','0.75','0.95')
 qvals_LCV = c('0.05','0.95')
@@ -233,7 +233,7 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_percentD_H_vs_unemp.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_percentD_H_vs_unemp.png'))
 
 
 
@@ -255,7 +255,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_percentD_H_vs_unemp.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
 
 
 (gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',],
@@ -276,7 +276,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
 
 
 
@@ -299,7 +299,7 @@ gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=="CE/total NEPA a
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction.withdrops.png'))
+       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
 
 
 
@@ -334,162 +334,6 @@ exp(0.083)
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 ggsave(gg_lcv_vs_unemp_rec,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_recwildlife_projcount_lcv_vs_unemp.withdrops.png'))
-
-
-
-# 
-# 
-# 
-# 
-# 
-# 
-# rec_dt = empty_list[DV=='Recreation_Wildlife']
-# rec_dt_lcv = rec_dt[!is.na(LCV_annual),]
-# rec_dt_dem = rec_dt[!is.na(percentD_H),]
-# gg_lcv_vs_unemp_rec_wildlife = ggplot(data = rec_dt_lcv,
-#                                     aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                         ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                         col = as.factor(x2_quantile)))  + 
-#   facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-#   geom_path(position = position_dodge(0.05)) +
-#   geom_errorbar(position = position_dodge(0.05)) + 
-#   scale_x_continuous(name = paste('% unemployment quantile')) +
-#   scale_y_continuous(name = '95% credible interval')+
-#   scale_color_viridis_d(name = 'LCV annual quantile',option = 'D') + 
-#   ggtitle('Rec./wildlife: LCV annual x unemployment %')+
-#   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
-# ggsave(gg_lcv_vs_unemp_rec_wildlife,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_lcv_vs_unemp_rec_wildlife.withdrops.png'))
-# 
-# gg_percentD_H_vs_unemp_rec_wildlife = ggplot(data = rec_dt_dem,
-#                                            aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                                ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                                col = as.factor(x2_quantile)))  + 
-#   facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-#   geom_path(position = position_dodge(0.05)) +
-#   geom_errorbar(position = position_dodge(0.05)) + 
-#   scale_x_continuous(name = paste('% unemployment quantile')) +
-#   scale_y_continuous(name = '95% credible interval')+
-#   scale_color_viridis_d(name = 'dem. vote share quantile',option = 'D') + 
-#   ggtitle('Rec./wildlife: LCV annual x unemployment %')+
-#   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
-# ggsave(gg_percentD_H_vs_unemp_rec_wildlife,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_percentD_H_vs_unemp_rec_wildlife.withdrops.png'))
-# 
-# 
-# rec_side_by_side_dt = empty_list[DV=='Recreation_Wildlife'&group == 'Project count',]
-# rec_side_by_side_dt$Var = ifelse(is.na(rec_side_by_side_dt$percentD_H),'LCV annual','% dem. vote')
-# 
-# gg_rec_side_by_side = ggplot(data = rec_side_by_side_dt,
-#                              aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                  ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                  col = as.factor(x2_quantile)))  + 
-#   facet_wrap(~ Var, scales = 'fixed',ncol = 2) + 
-#   geom_path(position = position_dodge(0.05)) +
-#   geom_errorbar(position = position_dodge(0.05)) + 
-#   scale_x_continuous(name = paste('% unemployment quantile')) +
-#   scale_y_continuous(name = '95% credible interval')+
-#   scale_color_viridis_d(name = 'quantile',option = 'D') + 
-#   ggtitle('Recreation: % dem.|LCV annual x unemployment %')+
-#   theme_bw() + theme(legend.position = c(0.35,0.15),legend.direction = 'vertical',
-#                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
-# ggsave(gg_rec_side_by_side,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_rec_wildlife.withdrops.png'))
-# 
-# 
-# 
-# lcv_unemp_side_by_side_dt = empty_list[group == 'Project count'&!is.na(LCV_annual)&DV!='All',]
-# lcv_unemp_side_by_side_dt$Var = ifelse(lcv_unemp_side_by_side_dt$DV=="Recreation_Wildlife",'Rec./wildlife','Extractive')
-# 
-# (gg_lcv_unemp_side_by_side_dt= ggplot(data = lcv_unemp_side_by_side_dt,
-#                              aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                  ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                  col = as.factor(x2_quantile)))  + 
-#   facet_wrap(~ Var, scales = 'fixed',ncol = 2) + 
-#   geom_path(position = position_dodge(0.05)) +
-#   geom_errorbar(position = position_dodge(0.05)) + 
-#   scale_x_continuous(name = paste('% unemployment quantile')) +
-#   scale_y_continuous(name = '95% credible interval')+
-#   scale_color_viridis_d(name = 'LCV annual quantile',option = 'D') + 
-#   ggtitle('LCV annual x unemployment %')+
-#   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-# 
-# ggsave(gg_lcv_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_lcv_ext_vs_rec.withdrops.png'))
-# 
-# 
-# 
-# 
-# lcv_unemp_side_by_side_dt = empty_list[group != 'Project count'&!is.na(LCV_annual)&DV!='All',]
-# lcv_unemp_side_by_side_dt$Var = ifelse(lcv_unemp_side_by_side_dt$DV=="Recreation_Wildlife",'Rec./wildlife','Extractive')
-# 
-# (gg_lcv_unemp_side_by_side_dt= ggplot(data = lcv_unemp_side_by_side_dt,
-#                                       aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                           ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                           col = as.factor(x2_quantile)))  + 
-#     facet_wrap(~ Var, scales = 'fixed',ncol = 2) + 
-#     geom_path(position = position_dodge(0.05)) +
-#     geom_errorbar(position = position_dodge(0.05)) + 
-#     scale_x_continuous(name = paste('% unemployment quantile')) +
-#     scale_y_continuous(name = '95% credible interval')+
-#     scale_color_viridis_d(name = 'LCV annual quantile',option = 'D') + 
-#     ggtitle('CE ratio: LCV annual x unemployment %')+
-#     theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-# 
-# ggsave(gg_lcv_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_lcv_ext_vs_rec.withdrops.png'))
-# 
-# 
-# demvote_unemp_side_by_side_dt = empty_list[group == 'Project count'&is.na(LCV_annual)&DV!='All',]
-# demvote_unemp_side_by_side_dt$Var = ifelse(demvote_unemp_side_by_side_dt$DV=="Recreation_Wildlife",'Rec./wildlife','Extractive')
-# 
-# (gg_demvote_unemp_side_by_side_dt= ggplot(data = demvote_unemp_side_by_side_dt,
-#                                       aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                           ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                           col = as.factor(x2_quantile)))  + 
-#     facet_wrap(~ Var, scales = 'fixed',ncol = 2) + 
-#     geom_path(position = position_dodge(0.05)) +
-#     geom_errorbar(position = position_dodge(0.05)) + 
-#     scale_x_continuous(name = paste('% unemployment quantile')) +
-#     scale_y_continuous(name = '95% credible interval')+
-#     scale_color_viridis_d(name = 'Dem. vote quantile',option = 'D') + 
-#     ggtitle('Dem. vote share x unemployment %')+
-#     theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-# 
-# ggsave(gg_demvote_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_projcount_unemp_demvote_ext_vs_rec.withdrops.png'))
-# 
-# 
-# 
-# 
-# 
-# demvote_unemp_side_by_side_dt = empty_list[group != 'Project count'&is.na(LCV_annual)&DV!='All',]
-# demvote_unemp_side_by_side_dt$Var = ifelse(demvote_unemp_side_by_side_dt$DV=="Recreation_Wildlife",'Rec./wildlife','Extractive')
-# 
-# (gg_demvote_unemp_side_by_side_dt= ggplot(data = demvote_unemp_side_by_side_dt,
-#                                           aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-#                                               ymax = `0.975quant`,group = as.factor(x2_quantile),
-#                                               col = as.factor(x2_quantile)))  + 
-#     facet_wrap(~ Var, scales = 'fixed',ncol = 2) + 
-#     geom_path(position = position_dodge(0.05)) +
-#     geom_errorbar(position = position_dodge(0.05)) + 
-#     scale_x_continuous(name = paste('% unemployment quantile')) +
-#     scale_y_continuous(name = '95% credible interval')+
-#     scale_color_viridis_d(name = 'Dem. vote quantile',option = 'D') + 
-#     ggtitle('CE ratio: Dem. vote share x unemployment %')+
-#     theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-#                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-# 
-# ggsave(gg_demvote_unemp_side_by_side_dt,dpi = 300,width = 6,height = 3.5, units = 'in',
-#        filename = paste0('output/policypolitics/figures/interaction_CEratio_unemp_demvote_ext_vs_rec.withdrops.png'))
-# 
-# 
-
+       filename = paste0('output/policypolitics/figures/interaction_recwildlife_projcount_lcv_vs_unemp.png'))
 
 

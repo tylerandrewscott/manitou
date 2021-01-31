@@ -25,101 +25,21 @@ keep_purpose = TRUE
 
 td = tempdir()
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-# # 
-# adm_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
-# tf = tempfile(tmpdir=td, fileext=".zip")
-# download.file(adm_url, tf)
-# fname = unzip(tf, list=TRUE)
-# unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-# fpath = file.path(td, grep('shp$',fname$Name,value=T))
-# admin_districts <- st_read(fpath)
-# admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
-# # fix bad polygons
-# bad_polys = !st_is_valid(admin_districts)
-# admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
-# 
-# admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
-# admin_districts$FOREST_ID = admin_districts$FORESTORGC
-# admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-# saveRDS(admin_districts,'scratch/admin_units_clean.RDS')
 
 admin_districts <- readRDS('scratch/admin_units_clean.RDS')
+fs = readRDS('input/prepped/fs_PALS_cleaned_project_datatable.RDS')
 
 drop_sites = c("Savannah River Site" ,'El Yunque National Forest',
             "Land Between the Lakes National Recreation Area" ,  "Columbia River Gorge National Scenic Area" ,"Midewin National Tallgrass Prairie" )
 drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNAME)]
 
-system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
-system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
+#system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
+#system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
 file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
 states = tigris::states(class = 'sf')
 states <- st_transform(states,crs = st_crs(albersNA))
 test = st_within(st_centroid(admin_districts),states)
 admin_districts$STATE = states[unlist(test),]$STUSPS
-
-fs = fread('https://docs.google.com/spreadsheets/d/e/2PACX-1vRuz53_guoKQejdd97Syvws360-S7g21tkjeH73OJ1K6zWKNlGwaDRLvd7bbwIoyLmYCf9RWsAzETu-/pub?output=csv',stringsAsFactors = F)
-fs$ongoing = 0
-fs2 = fread('https://docs.google.com/spreadsheets/d/e/2PACX-1vQgOk_TxujlSfspmA9-V4sBS95AMVu7MbjyCmbsIc1yu5N983sJqoR8usHvOXpMl99d1yBYejWoZtdk/pub?output=csv',stringsAsFactors = F)
-numcols = colnames(fs2)[as.vector(apply(fs2,2,function(x) !any(grepl('[^0-9]',x))))]
-fs2[,(numcols):=lapply(.SD,as.numeric),.SDcols = numcols]
-fs = merge(fs,fs2,all = T)
-fs = fs[!duplicated(paste(`PROJECT NUMBER`,`LMU (ACTUAL)`)),] 
-fs = fs[fs$`DECISION TYPE`!='PAD',]
-
-
-#fs = fs2
-#fs = fs[fs$`UNIQUE DECISION?`=='Y',]
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Buffalo Ranger District (11040306)"] <- "Blackrock Ranger District (11040306)"
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Powell Ranger District  (11010506)"] <- "Lochsa/Powell Ranger District (11011755)"
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Salmon River Ranger District (11050554)"] <- "Salmon-Scott Ranger District (11050554)"
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Paintrock Ranger District (11020204)"] <- "Salmon-Scott Ranger District (11020203)"
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Belt Creek Ranger District (11011503)"] <- "Belt Creek-White Sulphur Springs Ranger District (11011507)"
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Ashton/Island Park (11041552)" ]<- "Ashton/Island Park Ranger District (11041552)" 
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Los Angeles River (11050151)" ]<- "Los Angeles River Ranger District (11050151)" 
-fs$`LMU (ACTUAL)`[fs$`LMU (ACTUAL)`=="Santa Clara/Mojave Rivers (11050153)"  ]<- "Santa Clara/Mojave Rivers Ranger District (11050153)" 
-
-fs$UNIT_ID = str_extract(str_extract(fs$`LMU (ACTUAL)`,'[0-9]{3,}'),'[0-9]{6}$')
-fs$UNIT_ID = gsub('^0108','0111',fs$UNIT_ID)
-fs$UNIT_ID = gsub('^0105','0117',fs$UNIT_ID)
-fs$UNIT_ID = gsub('^0112','0115',fs$UNIT_ID)
-fs$UNIT_ID[fs$UNIT_ID=='011702'] <- '011752'
-fs$UNIT_ID[fs$UNIT_ID=='011703'] <- '011753'
-fs$UNIT_ID[fs$UNIT_ID=='011501'] <- '011511'
-fs$UNIT_ID[fs$UNIT_ID=='011504'] <- '011514'
-fs$UNIT_ID[fs$UNIT_ID=='011104'] <- '011184'
-fs$UNIT_ID[fs$UNIT_ID=='011502'] <- '011512'
-fs$UNIT_ID[fs$UNIT_ID=='011102'] <- '011182'
-fs$UNIT_ID[fs$UNIT_ID=='011706'] <- '011755'
-fs$FOREST_ID <- str_extract(fs$UNIT_ID,'^[0-9]{4}')
-fs$REGION_ID <- str_extract(fs$UNIT_ID,'^[0-9]{2}')
-
-fs$DECISON_LEVEL = NA
-fs$DECISON_LEVEL[grepl('National (Forest|Forests) All Units|(National|Natl) Grassland|All Units|Tallgrass',fs$`LMU (ACTUAL)`)]<- "National Forest/Grassland"
-fs$DECISON_LEVEL[grepl('R[0-9]|Region All Units',fs$`LMU (ACTUAL)`)] <- 'Region'
-fs$DECISON_LEVEL[grepl('Washington Office|11000000',fs$`LMU (ACTUAL)`)] <- 'National'
-fs$DECISON_LEVEL[grepl('Ranger District|RD|Mgt Unit|Catalina Field Office|Northern Great Lakes Visitor Center|Stone Nursery|Interpretive Center|Air Center|Research Station',fs$`LMU (ACTUAL)`)]<- "Ranger District/Mgt Unit"
-fs$DECISON_LEVEL[grepl('National Recreation Area|National Scenic Area|National Monument|NRA|Volcanic Monument',fs$`LMU (ACTUAL)`)]<- "NRA/NSA/NM"
-require(lubridate)
-fs$CALENDAR_YEAR <- year(mdy(fs$`INITIATION DATE`))
-
-#fs = fs[!fs$FOREST_ID%in%drop_units,]
-fs = fs[order(fs$`DECISION ID`),]
-fs = fs[!DECISON_LEVEL%in%c('National','Region'),]
-#fs = fs[!duplicated(`PROJECT NUMBER`),]
-fs = fs[!is.na(fs$FOREST_ID),]
-
-
-fs$Congress_Year = fs$CALENDAR_YEAR
-fs$Congress_Year[fs$Congress_Year%in% seq(1994,2018,2)] = as.numeric(fs$Congress_Year[fs$Congress_Year%in% seq(1994,2018,2)]) - 1
-fs$`DECISION TYPE`[fs$`DECISION TYPE`=='ROD'] <- 'EIS'
-fs$`DECISION TYPE`[fs$`DECISION TYPE`=='DN'] <- 'EA'
-fs$`DECISION TYPE`[fs$`DECISION TYPE`=='DM'] <- 'CE'
-fs$PROJECT_DECISON_LEVEL<-ifelse(fs$DECISON_LEVEL=='National Forest/Grassland','NATIONAL FOREST','RANGER DISTRICT/FIELD UNIT')
-congress_ids = data.table(congress = rep(101:116,each=2),CALENDAR_YEAR = 1989:2020)
-
-fs = left_join(fs,congress_ids)
-fs = data.table(fs)
-
 
 totcount = fs[,.N,by=.(FOREST_ID)]
 admin_districts = left_join(admin_districts,totcount)
@@ -128,8 +48,6 @@ us_counties = counties(class = 'sf',year = 2017)
 us_counties = st_transform(us_counties ,albersNA)
 #over_forest = st_intersects(us_counties,admin_districts)
 #us_counties = us_counties[sapply(over_forest,length)>0,]
-
-
 
 congress2015 = tigris::congressional_districts(year = 2015,class = 'sf')
 congress2015  = st_transform(congress2015 ,albersNA)
@@ -142,96 +60,13 @@ states <- st_crop(states,st_bbox(admin_districts))
 us_counties <- st_crop(us_counties,st_bbox(admin_districts))
 
 
-gg_forests = ggplot() +  #geom_sf(data = states,col = 'grey60') +
-  ggtitle('EAs + EISs by National Forest, 2005 to 2018') +
-  #geom_sf(data = us_counties,col = 'grey70',fill = NA) +
-  geom_sf(data = st_crop(congress2015,st_bbox(admin_districts)),
-          fill = NA,lwd = 0.25,col = 'grey50',aes(linetype = as.factor(1))) + 
-  geom_sf(data = admin_districts,aes(fill = N,col = N)) +
-  # scale_fill_gradientn(colours = rev(terrain.colors(10)[-10]),name = 'Total projects',)+
-  #  scale_color_gradientn(colours = rev(terrain.colors(10)[-10]),name = 'Total projects')+
-  scale_fill_viridis_c(name = '# projects')+
-  scale_color_viridis_c(name = '# projects')+
-  scale_linetype(name = '',labels = 'House district') + 
-  #geom_sf(data = congress2015,fill = 'blue',alpha=0.5) +
-  guides(linetype = guide_legend(override.aes = list(fill = NA,lty = 1,col = 'grey50',lwd = 1),title = NULL)) + 
-  theme_map() + theme(legend.position = c(0,.1),panel.grid = element_line(colour = "transparent"),title = element_text(size = 14),
-                      legend.text = element_text(size = 12),legend.title = element_text(size= 12))
-
 #ggsave(plot = gg_forests,filename = 'output/policypolitics/figures/national_forests.png',width=7,height=6,units ='in',dpi = 300)
-
-oregon_districts = admin_districts[admin_districts$REGION=='06',]
-oregon_districts = oregon_districts[sapply(st_intersects(oregon_districts,states[states$STUSPS=='OR',]),length)>0,]
-
-oregon115count = fs[fs$`DECISION TYPE`!='CE'&fs$FOREST_ID%in%oregon_districts$FOREST_ID&fs$congress==115,.N,by=.(FOREST_ID)]
-oregon_house = congress2015[congress2015$STATEFP=='41',]
-oregon_house$ID = paste0('OR-',oregon_house$CD114FP)
-oregon_districts = left_join(oregon_districts,oregon115count)
-oregon_house$Dem_Rep = c('D','R','D','D','D')
-
 
 nf = fread('input/prepped/national_forest_covariates.csv')
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
 
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
-
-nf115 = nf[congress==115,]
-oregon_districts$LCV_annual = nf115$LCV_annual[match(oregon_districts$FOREST_ID,nf115$FOREST_ID)]
-
-gg_oregon = ggplot() + ggtitle('Congressional Districts (115th) and\n National Forests in Oregon')+
-  geom_sf(data = oregon_house,aes(fill = ID))+
-  geom_sf(data = oregon_districts,aes(alpha = N),fill = 'grey20',col = NA) + 
-  # scale_colour_manual(values = 'grey50',label = 'National Forest',name = NULL) + 
-  scale_alpha(name = '# EA + EIS\n projects') + 
-  scale_fill_tableau(name = 'Representative',labels=c('Bonamici (D)','Walden (R)','Blumenauer (D)','DeFazio (D)','Schrader (D)')) + 
-  theme_map() + theme(panel.grid = element_line(colour='transparent'),legend.position = c(0.5,0.05),
-                      legend.box = 'horizontal',
-                      legend.background = element_rect(fill = alpha('white',0.5)),title = element_text(size = 15),
-                      legend.text = element_text(size = 12),
-                      legend.title = element_text(size =12))
-
-#ggsave(plot = gg_oregon,filename = 'output/policypolitics/figures/oregon_overlap.png',width=7,height=6,units ='in')
-oregon_districts$short_name = gsub(' National (Forest|Forests)$','',oregon_districts$FORESTNAME)
-oregon_districts$short_name = gsub(' National Scenic Area',' NSA',oregon_districts$short_name)
-oregon_house = st_make_valid(oregon_house)
-oregon_districts = lwgeom::st_make_valid(oregon_districts)
-gg_rep = ggplot() + ggtitle('House Representation (115th Congress)\n for National Forests in Oregon')+
-    geom_sf(data = oregon_house,col = NA,fill='grey90')+
-    geom_sf(data = oregon_districts,aes(fill = LCV_annual,col = LCV_annual)) +
-    geom_sf(data = oregon_house,lty = 1,fill = NA)+
-    scale_fill_gradient_tableau(palette = 'Classic Green',name = 'LCV annual',limits = c(0,100)) +
-    scale_colour_gradient_tableau(palette = 'Classic Green',name = 'LCV annual',limits = c(0,100)) +
-    geom_sf_text(data = oregon_districts,aes(label=short_name)) +
-    geom_sf_label(data = oregon_house,aes(label=gsub('0','',ID)),label.padding = unit(0.1, "lines")) + 
-    #scale_fill_tableau(name = 'Representative',labels=c('Bonamici (D)','Walden (R)','Blumenauer (D)','DeFazio (D)','Schrader (D)')) + 
-    theme_map() + theme(panel.grid = element_line(colour='transparent'),legend.position = c(0.6,0.05),
-                        legend.box = 'horizontal',
-                        legend.background = element_rect(fill = alpha('white',0.5)),title = element_text(size = 15),
-                        legend.text = element_text(size = 12),
-                        legend.title = element_text(size =12))
-
-#ggsave(plot = gg_rep,filename = 'output/policypolitics/figures/oregon_lcv_annual.png',width=7,height=6,units ='in')
-
-
-fs = fs[congress%in%109:115,]
-fs = fs[FOREST_ID %in% admin_districts$FOREST_ID,]
-
-
-fs = fs[fs$`DECISION TYPE`%in%keep_decisions,]
-fs$Type_Activity_Extractive <- 0
-fs$Type_Activity_Recreation_Wildlife <- 0
-fs$Type_Activity_Extractive <- (fs$`TS Timber salves (green) – activity`==1|fs$`SS Timber sales (salvage) – activity`==1|fs$`MG Minerals and geology – purpose`==1|
-                                  fs$`NG Natural gas – activity`==1|fs$`OL Oil – activity`==1|fs$`GR Grazing authorizations – activity`==1)+0
-fs$Type_Activity_Extractive[grepl('Plan (of|Of) Operations|Timber Sale|Gas Drill|Oil Drill|Gas Well|Oil Well|Grazing Authorization|Gas Line|Gas Pipeline|Gas Transmission',fs$`PROJECT NAME`)] <- 1
-fs$Type_Activity_Recreation_Wildlife <- (fs$`HI Species habitat improvements – activity`==1|fs$`PE Species population enhancements – activity`==1|
-                                           fs$`RW Recreation management – purpose`==1|fs$`MT Trail management – activity`==1)+0
-
-fs$Type_Purpose_Recreation_Wildlife <- 0
-fs$Type_Purpose_Extractive <- 0
-fs$Type_Purpose_Extractive[fs$`MG Minerals and geology – purpose` == 1| fs$`TM Forest products – purpose` == 1 | fs$`RG Grazing management – purpose`==1] <- 1
-fs$Type_Purpose_Recreation_Wildlife[fs$`WF Wildlife, fish, rare plants – purpose` == 1 | fs$`RW Recreation management – purpose` == 1] <- 1
-fs$Type_Purpose_All <- 1
 
 #install.packages("ggcorrplot")
 require(ggcorrplot)
@@ -268,8 +103,6 @@ counts_by_type$N[is.na(counts_by_type$N)]<-0
 
 durations = fs[,list(mean(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=T),median(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=T)),by = .(`DECISION TYPE`)]
 names(durations) <- c('Type','mean','median')
-
-
 
 #counts_by_type[FOREST_ID=='1004']
 
@@ -365,22 +198,9 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
 #ggsave(tt,dpi = 300,filename = 'output/policypolitics/figures/Unemp_by_forest_and_year.png',height = 12,width = 8,units = 'in')
 
 
-
-
-
-form_fixed = Y ~ 0 + #mu.u + 
-  as.factor(as.character(u_forest_id)) + 
-  as.factor(as.character(u_congress_id)) + 
-  as.factor(as.character(u_region_id)) + 
-  as.factor(as.character(u_state_id))+ 
-  as.factor(as.character(y_forest_id)) +
-  as.factor(as.character(y_congress_id))+
-  as.factor(as.character(y_region_id))+
-  as.factor(as.character(y_state_id)) +
+base_linear_form = Y ~ -1 + mu.u + mu.y + 
   u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
   u_ln_Receipts_Extraction_1M_P4 + 
-  #u_ln_Receipts_Recreation_1M_P4 +
-  #  u_Total_Receipts_4yr_Change_Perc +
   u_Ln_ACRES + u_Wilderness_Perc + 
   u_Burned_Perc_Past5yrs  + 
   u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species + 
@@ -388,7 +208,6 @@ form_fixed = Y ~ 0 + #mu.u +
   u_demPres + u_demCongress + 
   u_mrp_mean +
   u_LCV_annual + 
-  #mu.y +
   y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
   y_ln_Receipts_Extraction_1M_P4 + 
   y_Ln_ACRES + y_Wilderness_Perc + 
@@ -399,38 +218,15 @@ form_fixed = Y ~ 0 + #mu.u +
   y_mrp_mean +
   y_LCV_annual 
 
-
-  form0 = Y ~ 0 + mu.u + 
-    f(u_forest_id,model = 'iid',hyper = pc.prec.u) + 
-    f(u_congress_id,model = 'iid',hyper = pc.prec.u) + 
-    f(u_region_id, model = 'iid',hyper = pc.prec.u) + 
-    f(u_state_id, model = 'iid',hyper = pc.prec.u) + 
-    f(y_forest_id,model = 'iid',hyper = pc.prec.y) +
-    f(y_congress_id,model = 'iid',hyper = pc.prec.y) +
-    f(y_region_id,model = 'iid',hyper = pc.prec.y) +
-    f(y_state_id,model = 'iid',hyper = pc.prec.y) +
-    u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
-    u_ln_Receipts_Extraction_1M_P4 + 
-    #u_ln_Receipts_Recreation_1M_P4 +
-  #  u_Total_Receipts_4yr_Change_Perc +
-    u_Ln_ACRES + u_Wilderness_Perc + 
-    u_Burned_Perc_Past5yrs  + 
-    u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species + 
-    u_Perc_WUI_Housing +
-    u_demPres + u_demCongress + 
-    u_mrp_mean +
-    u_LCV_annual + 
-    mu.y +
-    y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
-    y_ln_Receipts_Extraction_1M_P4 + 
-    y_Ln_ACRES + y_Wilderness_Perc + 
-    y_Burned_Perc_Past5yrs  + 
-    y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species + 
-    y_Perc_WUI_Housing + 
-    y_demPres + y_demCongress +
-    y_mrp_mean +
-    y_LCV_annual 
-  
+  form0 = update.formula(base_linear_form, ~ . + 
+    f(u_forest_id,model = 'iid',hyper = iid_log_gamma_prior) + 
+    f(u_congress_id,model = 'iid',hyper = iid_log_gamma_prior) + 
+    f(u_region_id, model = 'iid',hyper = iid_log_gamma_prior) + 
+    f(u_state_id, model = 'iid',hyper = iid_log_gamma_prior) + 
+    f(y_forest_id,model = 'iid',hyper = iid_log_gamma_prior) +
+    f(y_congress_id,model = 'iid',hyper = iid_log_gamma_prior) +
+    f(y_region_id,model = 'iid',hyper = iid_log_gamma_prior) +
+    f(y_state_id,model = 'iid',hyper = iid_log_gamma_prior) )
   
   form0x = update.formula(form0, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
   form1 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
@@ -490,55 +286,6 @@ ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = F)
 ggsave(plot = ggc,filename = 'output/policypolitics/figures/correlation_plot.png',width=  8,height = 8, units = 'in',dpi = 300)
 
 
-# 
-# subnf = nf[congress==115,.(FOREST_ID,percentD_H,LCV_annual,Count_EorT_Species,Wilderness_Prop,Prop_Extraction_Employ,ln_County_naturalresource_GDP_1M)]
-# admin_districts$percentD_H115 = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$percentD_H
-# admin_districts$LCV_annual115 = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$LCV_annual
-# admin_districts$Prop_Extraction_Employ = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$Prop_Extraction_Employ
-# admin_districts$ln_County_naturalresource_GDP_1M = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$ln_County_naturalresource_GDP_1M
-# admin_districts$Wilderness_Prop = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$Wilderness_Prop
-# admin_districts$Count_EorT_Species = subnf[match(admin_districts$FOREST_ID,FOREST_ID),]$Count_EorT_Species
-# g1 = ggplot(admin_districts) + geom_sf(aes(fill = percentD_H115,colour = percentD_H115)) + theme_map() + 
-#   ggtitle('percentD_H, 115th congress by  unit') + 
-#   scale_color_viridis_c() + scale_fill_viridis_c()+ 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# g2 = ggplot(admin_districts) + geom_sf(aes(fill = LCV_annual115,colour = LCV_annual115)) + theme_map()+ 
-#   ggtitle('LCV Annual, 115th congress by unit')+ 
-#   scale_color_viridis_c(option = 'C') + scale_fill_viridis_c(option = 'C') + 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# #install.packages('gridExtra')
-# library(gridExtra)
-# grb = grid.arrange(g1,g2,ncol = 1)
-# #ggsave(grb,filename = 'output/policypolitics/figures/choropleth_politics_by_forest.png',width = 9,height = 11,units = 'in',dpi = 300)
-# 
-# g3 = ggplot(admin_districts) + geom_sf(aes(fill = Wilderness_Prop,colour = Wilderness_Prop)) + theme_map() + 
-#   ggtitle('Wilderness %, 115th congress by unit') + 
-#   scale_color_viridis_c(option = 'A') + scale_fill_viridis_c(option = 'A')+ 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# g4 = ggplot(admin_districts) + geom_sf(aes(fill = ,colour = Count_EorT_Species)) + theme_map()+ 
-#   ggtitle('# ESA lists, 115th congress by unit')+ 
-#   scale_color_viridis_c(option = 'B') + scale_fill_viridis_c(option = 'B') + 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# #install.packages('gridExtra')
-# 
-# grb2 = grid.arrange(g3,g4,ncol = 1)
-# #ggsave(grb2,filename = 'output/policypolitics/figures/choropleth_enviro_by_forest.png',width = 9,height = 11,units = 'in',dpi = 300)
-# 
-# 
-# g5 = ggplot(admin_districts) + geom_sf(aes(fill = Prop_Extraction_Employ,colour = Prop_Extraction_Employ)) + theme_map() + 
-#   ggtitle('Extraction employ., 115th congress by unit') + 
-#   scale_color_viridis_c(option = 'A') + scale_fill_viridis_c(option = 'A')+ 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# g6 = ggplot(admin_districts) + geom_sf(aes(fill = ln_County_naturalresource_GDP_1M,colour = ln_County_naturalresource_GDP_1M)) + theme_map()+ 
-#   ggtitle('County resource GDP, 115th congress by unit')+ 
-#   scale_color_viridis_c(option = 'B') + scale_fill_viridis_c(option = 'B') + 
-#   theme(legend.title  = element_blank(),legend.position = c(0.1,0.2),text = element_text(size = 12))
-# #install.packages('gridExtra')
-# 
-# grb3 = grid.arrange(g5,g6,ncol = 1)
-# #ggsave(grb3,filename = 'output/policypolitics/figures/choropleth_extractecon_by_forest.png',width = 9,height = 11,units = 'in',dpi = 300)
-# 
-
 input_data = dcast(counts_by_type,get(period_type) + 
                      FOREST_ID + Project_Type ~ DECISION_TYPE,value.var = 'N',fill = 0)
 input_data$Tot_Proj = input_data$CE + input_data$EA + input_data$EIS
@@ -550,36 +297,15 @@ if(period_type!='congress'){
 yheight = input_data[,.N,by = .(Tot_Proj)][N==max(N),]$N
 
 
-dim(counts_by_type[Project_Type=='Type_Purpose_Extractive',sum(N),by=.(FOREST_ID,CALENDAR_YEAR)][V1!=0,])
-
-
-g1 = ggplot(data = input_data,aes(x = Tot_Proj)) + geom_histogram(bins = 100)+
-  scale_y_continuous(name = '# forest-congress observations') +
-  scale_x_continuous(name = '# projects by period') + theme_bw() + 
-  ggtitle('# Extractive projects')
-
-g2 = ggplot(data = input_data,aes(x = CE/Tot_Proj)) + 
-  scale_x_continuous(name = '# CE / total NEPA analyses')+
-  geom_density() + ggtitle('CE / total NEPA analyses')  +
-  theme_bw() + scale_y_continuous(name = 'density') + 
-  coord_flip()
-
-g3 = ggplot(data = input_data,aes(x = Tot_Proj,y = CE)) + geom_jitter(pch = 21) + theme_bw() + 
-  scale_x_continuous(name = '# projects in period') +
-  scale_y_continuous(name = '# CEs issued') + 
-  ggtitle('CEs vs. total extractive projects')
-library(gridExtra)
-ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'output/policypolitics/figures/DV_plot.png',width = 8,units = 'in',height= 8,dpi = 300)
-
-
-
-sort(unique(nf$FOREST_ID))
 forest_index = data.table(forest_id = sort(unique(nf$FOREST_ID)),index = seq_along(unique(nf$FOREST_ID)))
 region_index = data.table(region_id = sort(unique(nf$USFS_REGION)),index = seq_along(unique(nf$USFS_REGION)))
 state_index = data.table(state_id = sort(unique(nf$STATE)),index = seq_along(unique(nf$STATE)))
 congress_index = data.table(congress_id = sort(unique(nf$congress)),index = seq_along(unique(nf$congress)))
 
-makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
+subtypes =  "Type_Purpose_Extractive" 
+mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period = period_type
+
+
   temp_count = project_type_counts_for_model[Project_Type==mod,,]
   temp_count = dcast(temp_count ,get(period_type) + FOREST_ID ~ DECISION_TYPE,fill = 0,value.var = 'N')
   setnames(temp_count,'period_type',period_type)
@@ -683,9 +409,9 @@ makeIDAT = function(mod,nf,project_type_counts_for_model,period = period_type){
   idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
   # idat$u_ln_County_naturalresource_GDP_1M_L1 = c(scale(temp_dt$ln_County_naturalresource_GDP_1M_L1),rep(NA,narep))
   idat$n = n;idat$y = y;idat$u = u;
-  return(idat)}
 
-subtypes = subtypes[grepl('EXTRACTIVE|WILDLIFE',toupper(subtypes))]
+
+
 library(INLA)
 
 #project_type_counts_for_model[,sum(N),by=.(Project_Type)]
@@ -698,11 +424,6 @@ table(pcount$`DECISION TYPE`,pcount$Type_Purpose_Extractive)
 library(ggrepel)
 
 
-ggplot() + geom_point(data = nf,aes(x = percentD_H,y = LCV_annual)) +
-  geom_label_repel(data = nf[percentD_H<0.3&LCV_annual>50,],aes(x = percentD_H,y = LCV_annual,label = FOREST_NAME))
-ggplot() + geom_point(data = nf,aes(x = percentD_H,y = LCV_annual)) +
-  geom_label_repel(data = nf[percentD_H>0.55&LCV_annual<15,],aes(x = percentD_H,y = LCV_annual,label = FOREST_NAME))
-
 counts_by_type[Project_Type=='Type_Purpose_Extractive',][order(-N),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
 counts_by_type[Project_Type=='Type_Purpose_Extractive',sum(N),by=.(CALENDAR_YEAR,FOREST_ID)][order(-V1),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
 
@@ -713,21 +434,14 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
 
 subtypes = grep('Extract',subtypes,value = T)
 
-
-#list_of_results = lapply(subtypes,function(mod) {
-
-  idat = makeIDAT(mod = subtypes,nf = nf,project_type_counts_for_model = counts_by_type)
-  #  temp = merge(temp,all_combos,all=T)
-  #  temp$N[is.na(temp$N)] <- 0
-  #y_lik <- log(idat$y/idat$u)
-  u.sdres <- sd(idat$u,na.rm = T)#sd(y_like[is.finite(y_lik)])
+iid_log_gamma_prior = list(prec = list(prior = "loggamma", param = c(1, 0.00005)))
+  u.sdres <- sd(idat$u,na.rm = T)
   y.sdres <- sd(idat$y/idat$u,na.rm=T)
   pc.prec.u = list(prec = list(prior = "pc.prec", param = c(3*u.sdres, 0.01)))
   pc.prec.y = list(prec = list(prior = "pc.prec", param = c(3*y.sdres, 0.01)))
   bprior <- list(prior = 'gaussian', param = c(0,1))
-  famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
-                    list(prior = "pcprec", param = c(3*y.sdres,0.01)))
-  cinla <- list(strategy = 'adaptive', int.strategy = 'eb') 
+  famcontrol = list(pc.prec.u,pc.prec.y)
+  #cinla <- list(strategy = 'adaptive', int.strategy = 'eb') 
   cres <- list(return.marginals.predictor = FALSE, 
                return.marginals.random = FALSE)
   
@@ -747,66 +461,18 @@ subtypes = grep('Extract',subtypes,value = T)
   idat$y_congress_id <- congress_index$index[match(idat$y_congress_id,congress_index$congress_id)] + nrow(congress_index)
   idat$uc_congress_id <-  idat$u_congress_id
 
+  
   mod_list = lapply(list_of_forms,function(f) {print(f);gc();inla(get(f),
                                                                   family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
                                                                   control.fixed = list(expand.factor.strategy = "inla"),
                                                                   control.family = famcontrol,
-                                                                  control.inla = cinla,
+                                                                 # control.inla = cinla,
                                                                   control.results = cres,
                                                                   data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE,config = TRUE),
                                                                   control.predictor=list(compute=TRUE),verbose=F)})
-  
-  test = lapply(list('form0','form_fixed'),function(f) {print(f);gc();inla(get(f),
-                                                                  family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
-                                                                  control.fixed = list(expand.factor.strategy = "inla"),
-                                                                  control.family = famcontrol,
-                                                                  control.inla = cinla,
-                                                                  control.results = cres,
-                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE,config = TRUE),
-                                                                  control.predictor=list(compute=TRUE),verbose=F)})
-  
- 
-form_fixed
-tt = (model.matrix(~mu.u + mu.y + as.factor(u_forest_id) + as.factor(y_forest_id), idat))
-
-
-
-  summary(test[[2]])
-  test[[1]]$waic$waic
-  test[[2]]$waic$waic
-  summary(test[[2]])
-  summary(test[[1]])
   
   
   names(mod_list) <- list_of_forms
   #fixef_results = lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.),form = x,mod = mod))
   saveRDS(mod_list,paste0('output/policypolitics/model_objects/models_',subtypes,'.RDS'))
-
-
-
-# waic_scores = data.table(sapply(list_of_results,function(x) sapply(x,function(y) y$waic$waic)))
-# waic_scores$formula <- list_of_forms
-# colnames(waic_scores)[1:length(subtypes)]<-subtypes
-# library(htmlTable)
-# waic_scores[,1:length(subtypes)] <- round(waic_scores[,1:length(subtypes)],3)
-# htmlTable(waic_scores)
-# 
-# waic_scores$spec = c("baseline","national_politics","lcv_x_demvoteshare","lcv_x_unemployment",
-#   "lcv_x_prop_extraction_employ","lcv_x_naturalresourceGDP","lcv_x_wilderness",
-# "lcv_x_species","demvote_x_wilderness","demvote_x_species")
-# if('CE' %in% keep_decisions & !keep_activities ){fwrite(waic_scores,'output/policypolitics/tables/waic_table.csv')}
-# if(!'CE' %in% keep_decisions & !keep_activities){fwrite(waic_scores,'output/policypolitics/tables/waic_table_noCE.csv')}
-# if('CE' %in% keep_decisions & keep_activities ){fwrite(waic_scores,'output/policypolitics/tables/waic_table_activities.csv')}
-# if(!'CE' %in% keep_decisions & keep_activities){fwrite(waic_scores,'output/policypolitics/tables/waic_table_noCE_activities.csv')}
-# 
-
-
-lcv_vs_unemp = ggplot(nf,aes(x = LCV_annual,y = Unemp_Rate)) + geom_point(pch = 21,alpha = 0.5) + theme_bw() + 
-  scale_x_continuous(name = 'annual LCV score') + scale_y_continuous(name = 'Unemployment %') + 
-  ggtitle('Unemployment vs. LCV score', subtitle = 'administrative unit-year observations')
-
-ggsave(lcv_vs_unemp,filename = 'output/policypolitics/figures/IV_plot.png',dpi=300,width = 6, height = 6, units = 'in')
-
-
-
 

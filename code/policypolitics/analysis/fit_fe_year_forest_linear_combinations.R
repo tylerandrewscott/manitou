@@ -11,29 +11,49 @@ library(devtools)
 library(ggthemes)
 empty_list = data.table()
 locs = 'output/policypolitics/model_objects/'
-model_sets = list.files('output/policypolitics/model_objects/','^models')
+model_sets = list.files('output/policypolitics/model_objects/','fe_year_forest_models')
 model_sets <- model_sets[which(grepl('Purpose.*Extract',model_sets))]
-model_list = readRDS(paste0(locs,model_sets))
+model_list_of_lists = lapply(model_sets,function(x) readRDS(paste0(locs,x)))
+model_sets
+uy_ex = model_list_of_lists[[1]][[1]]$.args$data$Y
+uy_rec = model_list_of_lists[[2]][[1]]$.args$data$Y
 
+#correlation between extraction and rec counts
+cor(uy_ex[,1],uy_rec[,1],use = 'pairwise.complete.obs')
+#correlation between extraction and rec CE ratios
+cor(uy_ex[,2],uy_rec[,2],use = 'pairwise.complete.obs')
 
-uy_ex = model_list[[1]]$.args$data$Y
-
-
-
+uy_ex[which(is.na(uy_ex[,2])),1]
 eu = as.numeric(uy_ex[1:nrow(uy_ex)/2,1])
 ey = as.numeric(uy_ex[(1:nrow(uy_ex)/2) + nrow(uy_ex)/2,2])
 
+cor(cbind(eu,ey),use = 'pairwise.complete.obs')
+
+#cor(eu,ey,use = 'pairwise.complete.obs')
+#cor(uy_ex[1:nrow(uy_ex)/2,1],
+#uy_ex[(1:nrow(uy_ex)/2) + nrow(uy_ex)/2,2],use = 'pairwise.complete.obs')
+#uy_rec[which(is.na(uy_ex[,1])),2]
+
+#cor(uy_ex[!which(is.na(uy_ex[,1])),1],uy_rec[which(is.na(uy_ex[,1])),2],use = 'pairwise.complete.obs')
+
+#modnames = str_remove(str_remove(str_extract(model_sets,'models_[A-Z-a-z_]+'),'models_Type_Purpose'),'models_Type_')
 mod_names = gsub('\\.RDS','',str_remove(model_sets,'models_Type_Purpose_'))
+
 bprior <- list(prior = 'gaussian', param = c(0,1))
 
-allvars = lapply(model_list,function(x) x$model.matrix@Dimnames[[2]])
-intervars = lapply(allvars,function(x)  grep(':',x,value=T))
-intervars
+allvars = lapply(model_list_of_lists,function(x) sapply(x,function(y) y$model.matrix@Dimnames[[2]]))
+
+
+intervars = lapply(allvars,function(x) lapply(x,function(y) grep(':',y,value=T)))
+
 for(i in seq_along(intervars)){
-    if(length(intervars[[i]])>0){
-      tdt = as.data.table(as.matrix(model_list[[i]]$model.matrix))
-      iname = lapply(intervars[[i]],function(k)  k)
-      ivars = lapply(intervars[[i]],function(k)  c(unlist(str_split(k,':'))))
+  for(j in seq_along(intervars[[i]])){
+    if(length(intervars[[i]][[j]])>0){
+      print(j)
+
+      tdt = as.data.table(as.matrix(model_list_of_lists[[i]][[j]]$model.matrix))
+      iname = lapply(intervars[[i]][[j]],function(k)  k)
+      ivars = lapply(intervars[[i]][[j]],function(k)  c(unlist(str_split(k,':'))))
       temp_vars = data.table(tdt[mu.u ==1,ivars[[1]],with = F],
                              tdt[mu.u ==0,ivars[[2]],with = F])
       cols = unlist(ivars)
@@ -76,20 +96,21 @@ for(i in seq_along(intervars)){
       names(lcy) = paste('y', 1:length(lcy), sep="")
       lc = c(lcu, lcy)
       
-      u.sdres <- sd(model_list[[i]]$.args$data$u,na.rm = T)#sd(y_like[is.finite(y_lik)])
-      y.sdres <- sd(model_list[[i]]$.args$data$y/model_list[[i]]$.args$data$u,na.rm=T)
+      u.sdres <- sd(model_list_of_lists[[i]][[j]]$.args$data$u,na.rm = T)#sd(y_like[is.finite(y_lik)])
+      y.sdres <- sd(model_list_of_lists[[i]][[j]]$.args$data$y/model_list_of_lists[[i]][[j]]$.args$data$u,na.rm=T)
       pc.prec.u = list(prec = list(prior = "pc.prec", param = c(3*u.sdres, 0.01)))
       pc.prec.y = list(prec = list(prior = "pc.prec", param = c(3*y.sdres, 0.01)))
      # famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
       #                  list(prior = "pcprec", param = c(3*y.sdres,0.01)))
-   
-      newmodel = inla(formula = model_list[[i]]$.args$formula ,
-                      control.compute = list(waic=TRUE,dic=TRUE),
-                      family = model_list[[i]]$.args$family,
-                      Ntrials = model_list[[i]]$.args$Ntrials,
+     
+      newmodel = inla(formula = model_list_of_lists[[i]][[j]]$.args$formula ,control.compute = list(waic=TRUE,dic=TRUE),
+                      Ntrials = model_list_of_lists[[i]][[j]]$.args$Ntrials,
+                      family = c('nbinomial', 'betabinomial'),
+                      # control.inla= list(strategy = "gaussian", int.strategy = "eb"),
+                      #control.family = famcontrol,
                       control.fixed = list(expand.factor.strategy = "inla"),
-                      data=model_list[[i]]$.args$data,lincomb = lc,
-                      control.update = list(result = model_list[[i]]),
+                      data=model_list_of_lists[[i]][[j]]$.args$data,lincomb = lc,
+                      control.update = list(result = model_list_of_lists[[i]][[j]]),
                       control.predictor=list(compute=TRUE),verbose=F)
       
       lcd = newmodel$summary.lincomb.derived
@@ -116,20 +137,21 @@ for(i in seq_along(intervars)){
       lcd = data.table(lcd)
       #lcd = lcd[!duplicated(paste(scale_val1,scale_val2,group)),]
       lcd$i = i
+      lcd$j = j
       lcd$DV <- mod_names[i]
-      lcd$form <-  names(model_list)[i]
+      lcd$form <-  names(model_list_of_lists[[i]])[j]
       empty_list = rbind(empty_list,lcd,fill = T,use.names = T)
     }
   }
 }
 
 
-fwrite(empty_list,'output/policypolitics/interaction_results.csv')
+fwrite(empty_list,'output/policypolitics/interaction_fe_year_forest_results.csv')
 
 
 #empty_list$outcome = name_matcher$outcome[match(empty_list$i,name_matcher$i)]
 
-empty_list = fread('output/policypolitics/interaction_results.csv')
+empty_list = fread('output/policypolitics/interaction_fe_year_forest_results.csv')
 
 #qvals = c('0.05','0.25','0.5','0.75','0.95')
 qvals_LCV = c('0.05','0.95')
@@ -139,7 +161,8 @@ qval_labels_dmVS = c('15%','65%')
 qvals_Dem = c(0.05,0.90)
 qval_labels_DEM = c('Republican','Democrat')
 
-ext_dt = empty_list
+
+ext_dt = empty_list[DV=='fe_year_forest_Extractive',]
 ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 
 ext_dt_lcv = ext_dt[!is.na(LCV_annual)& x2_quantile %in% qvals_LCV,]
@@ -166,8 +189,8 @@ ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))))
 
-ggsave(gg_lcv_vs_unemp_extraction,dpi = 500,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_lcv_vs_unemp.png'))
+ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_projcount_lcv_vs_unemp.png'))
 
 
 (gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses"&!grepl('alt',form),],
@@ -186,11 +209,11 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 500,width = 6,height = 4.5, units = 'in'
     scale_color_colorblind(name = 'annual LCV score',labels=qval_labels_lcv) +
     guides(fill = FALSE) + 
     ggtitle('CEs/total NEPA analyses',subtitle ='LCV annual x unemployment %')+
-    theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
+    theme_bw() + theme(legend.position = c(0.8,0.15),legend.direction = 'vertical',
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
-ggsave(gg_lcv_vs_unemp_extraction,dpi = 500,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_lcv_vs_unemp.png'))
+ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_CEratio_lcv_vs_unemp.png'))
 
 
 (gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=='Project count',],
@@ -211,8 +234,8 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 500,width = 6,height = 4.5, units = 'in'
   ggtitle('# extractive projects',subtitle= 'Dem. vote share x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_percentD_H_vs_unemp.png'))
+ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_projcount_percentD_H_vs_unemp.png'))
 
 
 
@@ -233,8 +256,8 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units =
   ggtitle('CEs/total NEPA analyses',subtitle= 'Dem. vote share x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
+ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
 
 
 (gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',],
@@ -254,8 +277,8 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units =
   ggtitle('# extractive projects',subtitle ='Dem. rep. x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
+ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
 
 
 
@@ -277,7 +300,7 @@ gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=="CE/total NEPA a
   ggtitle('CEs/total NEPA analyses',subtitle ='Dem. rep. x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
+ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
+       filename = paste0('output/policypolitics/figures/fe_year_forest_interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
 
 

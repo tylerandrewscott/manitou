@@ -12,20 +12,7 @@
   
   td = tempdir()
    albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-  # 
-  # admin_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.AdministrativeForest.zip"
-  # tf = tempfile(tmpdir=td, fileext=".zip")
-  # download.file(admin_url, tf)
-  # fname = unzip(tf, list=TRUE)
-  # unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-  # fpath = file.path(td, grep('shp$',fname$Name,value=T))
-  # admin_districts <- st_read(fpath)
-  # admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
-  # fix bad polygons
-  
-  # bad_polys = !st_is_valid(admin_districts)
-  #  admin_districts[bad_polys,] <- st_make_valid(admin_districts[bad_polys,])
-  
+ 
   admin_districts <- readRDS('scratch/admin_units_clean.RDS')
 
   admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
@@ -35,16 +22,15 @@
   locs = 'output/policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name =c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
   model_sets = list.files('output/policypolitics/model_objects/','Purpose.*Ext')
-  model_names = str_remove(model_sets,'models_Type_Purpose_')
+  model_names = str_remove(model_sets,'^models_Type_Purpose_Ex')
 
   # lapply(seq_along(mod_name_sets),function(mod){
   mod = 1
   
   mod_list = readRDS(paste0('output/policypolitics/model_objects/models_Type_Purpose_Extractive.RDS'))
-  
-  model_list_of_lists = readRDS(paste0(locs,model_sets))
 
-  temp = (model_list_of_lists[[2]])
+  sapply(mod_list,function(x) x$waic$waic)
+  temp = (mod_list[[2]])
  congressA = ggplot(temp$summary.random$u_congress_id ,aes(x = as.factor(ID),y = mean,ymin = `0.025quant`,ymax = `0.975quant`)) + geom_point() + geom_errorbar() + theme_bw() +
    ggtitle('modeled intercept by congress for total project')
  congressB = ggplot(temp$summary.random$y_congress_id ,aes(x = as.factor(ID),y = mean,ymin = `0.025quant`,ymax = `0.975quant`)) + geom_point() + geom_errorbar() + theme_bw() + 
@@ -52,12 +38,13 @@
  library(gridExtra)
  grid.arrange(congressA,congressB,ncol = 2)
  
- (waic_table = as.data.table(lapply(model_list_of_lists,function(y) y$waic$waic)))
+ (waic_table = as.data.table(lapply(mod_list,function(y) y$waic$waic)))
   #colnames(waic_table) <- names(model_list_of_lists)
   fwrite(waic_table,'output/policypolitics/tables/waic_table.csv')
   
-  coef_df = rbindlist(lapply(seq_along(model_list_of_lists), function(y) {
-    model_list_of_lists[[y]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.), mod = y,DV = names(model_list_of_lists)[y])}))
+
+  coef_df = rbindlist(lapply(seq_along(mod_list), function(y) {
+    mod_list[[y]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.), mod = y,DV = names(mod_list)[y])}))
   coef_df$cred = paste(formatC(round(coef_df$mean,3),digits = 3,flag = 0),paste0('(',
         formatC(round(coef_df$`0.025quant`,3),digits = 3,flag = 0),', ',
         formatC(round(coef_df$`0.975quant`,3),digits = 3,flag = 0),')'))
@@ -118,8 +105,8 @@ write_tableHTML(tableHTML(temp_coef_table), file = 'output/policypolitics/tables
   HTML(coef_cast2, file = paste0('output/policypolitics/tables/extractive_coefs.html'),row.names = F)
 
   
-  coef_results = rbindlist(lapply(seq_along(model_list_of_lists),function(x) model_list_of_lists[[x]]$summary.fixed[,c(1,3,5)] %>%
-           mutate(specification = x,coef = rownames(.),  form =   names(model_list_of_lists)[x])))
+  coef_results = rbindlist(lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>%
+           mutate(specification = x,coef = rownames(.),  form =   names(mod_list)[x])))
   
   coef_results = coef_results[!coef%in%c('mu.u','mu.y')]
   #coef_results = coef_results[specification!=3,]
@@ -200,7 +187,7 @@ lapply(seq_along(variations),function(x) {
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Extractive projects') +
   NULL
-ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],'.png'),dpi = 300,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('output/policypolitics/figures/coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
 })
 
 
@@ -222,7 +209,7 @@ temp$specification = 'Posterior estimates'
           legend.background = element_rect(fill = NA),
           axis.text = element_text(size = 12),strip.text = element_text(size = 12),
           legend.text = element_text(size = 12),legend.title = element_blank()) +
-    scale_x_continuous(name = '95% credible interval',limits = c(-0.9,0.9)) + 
+    scale_x_continuous(name = '95% credible interval') + #limits = c(-0.9,0.9)) + 
     # scale_shape_manual(values = c(19,21))
     #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
     #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
@@ -232,7 +219,7 @@ temp$specification = 'Posterior estimates'
     ggtitle('Extractive projects') +
     NULL)
 ggsave(plot = lcv1,filename = 'output/policypolitics/figures/coefplot_LCV_linear.png',
-       width = 5,height =6, units = 'in',dpi = 300)
+       width = 5,height =6, units = 'in',dpi = 500)
 
 
 temp = extract_coefs[grepl('LCV x',specification),]
@@ -270,8 +257,8 @@ ggsave(plot = lcv2,filename = 'output/policypolitics/figures/coefplot_LCV_intera
 
 
 
-temp = rbind(model_list_of_lists[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
-             model_list_of_lists[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
+temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
+             mod_list[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
 
 nms = gsub('\\sNational Forest($|s$)|National Forests in\\s','',admin_districts$FORESTNAME[match(temp$ID,admin_districts$FOREST_ID)])
 nms = gsub('National Recreation Area','NRA',nms)
@@ -291,8 +278,8 @@ ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_for
 
 
 
-temp = rbind(model_list_of_lists[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
-             model_list_of_lists[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
+temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
+             mod_list[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
 
 nms = gsub('\\sNational Forest($|s$)|National Forests in\\s','',admin_districts$FORESTNAME[match(temp$ID,admin_districts$FOREST_ID)])
 nms = gsub('National Recreation Area','NRA',nms)
@@ -311,9 +298,8 @@ forest_re =  ggplot(data = temp) +
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Wildlife/recreation projects') 
 ggsave(forest_re,filename = 'output/policypolitics/figures/random_intercepts_forest_rec_wildlife.png',width = 9,height = 10,units = 'in',dpi = 300)
 
-temp = rbind(model_list_of_lists[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
-             model_list_of_lists[[2]]$summary.random$y_congress_id %>% mutate(group = 'CE/total analyses'))
-
+temp = rbind(mod_list[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
+             mod_list[[2]]$summary.random$y_congress_id %>% mutate(group = 'CE/total analyses'))
 
 congress_re =  ggplot(data = temp) + 
   geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = as.factor(ID),col = group,group = group),position = position_dodge(width = 1)) + 
@@ -325,26 +311,13 @@ congress_re =  ggplot(data = temp) +
 ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_extraction.png',width = 4,height = 6,units = 'in',dpi = 300)
 
 
-temp = rbind(model_list_of_lists[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
-             model_list_of_lists[[2]]$summary.random$y_congress_id %>% mutate(group = 'CE/total analyses'))
-
-congress_re =  ggplot(data = temp) + 
-  geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = as.factor(ID),col = group,group = group),position = position_dodge(width = 1)) + 
-  geom_point(aes(y = mean,x = as.factor(ID),col = group,group = group),position = position_dodge(width = 1)) + theme_bw() + 
-  scale_colour_colorblind(name = 'outcome') + coord_flip() + 
-  theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
-  scale_y_continuous(name = '95% credible interval') + 
-  ggtitle('Modeled intercepts by Congress',subtitle = 'Wildlife/recreation projects') 
-ggsave(congress_re,filename = 'output/policypolitics/figures/random_intercepts_congress_rec_wildlife.png',width = 4,height = 6,units = 'in',dpi = 300)
-
-
 temp_tab = (round(do.call(rbind,list(
-model_list_of_lists[[1]]$summary.hyperpar[,c(1,3,5)],
-model_list_of_lists[[1]]$summary.hyperpar[,c(1,3,5)],
-model_list_of_lists[[2]]$summary.hyperpar[,c(1,3,5)],
-model_list_of_lists[[2]]$summary.hyperpar[,c(1,3,5)])),2))
-
-
+mod_list[[1]]$summary.hyperpar[,c(1,3,5)],
+mod_list[[2]]$summary.hyperpar[,c(1,3,5)],
+mod_list[[3]]$summary.hyperpar[,c(1,3,5)],
+mod_list[[4]]$summary.hyperpar[,c(1,3,5)],
+mod_list[[5]]$summary.hyperpar[,c(1,3,5)],
+mod_list[[6]]$summary.hyperpar[,c(1,3,5)])),2))
 
 temp_coef_table = temp_tab
 library(tableHTML)

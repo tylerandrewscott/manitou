@@ -428,20 +428,29 @@ HC.prior  = "expression:
 famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
                   list(prior = "pcprec", param = c(3*y.sdres,0.01)))
 
+lg_options = expand.grid(seq(0.25,10,0.5),seq(0.00005,2,0.025))
 
-lg_options = expand.grid(seq(0.25,10,0.25),seq(0.00005,2,0.01))
+pc.prec_priors = list(list(prec = list(prior = "pc.prec", param = c(0.25, 0.00005))),
+                       list(prec = list(prior = "pc.prec", param = c(1, 0.00005))),
+                       list(prec = list(prior = "pc.prec", param = c(2.5, 0.00005))),
+                       list(prec = list(prior = "pc.prec", param = c(5, 0.00005))),
+                       list(prec = list(prior = "pc.prec", param = c(10, 0.00005))),
+                       list(prec = list(prior = "pc.prec", param = c(1, 0.01))),
+                       list(prec = list(prior = "pc.prec", param = c(1, 0.1))),
+                       list(prec = list(prior = "pc.prec", param = c(1, 1))))
 
-loggamma_priors = list(list(prec = list(prior = "loggamma", param = c(0.25, 0.00005))),
-                       list(prec = list(prior = "loggamma", param = c(1, 0.00005))),
-                       list(prec = list(prior = "loggamma", param = c(2.5, 0.00005))),
-                       list(prec = list(prior = "loggamma", param = c(5, 0.00005))),
-                       list(prec = list(prior = "loggamma", param = c(10, 0.00005))),
-                       list(prec = list(prior = "loggamma", param = c(1, 0.01))),
-                       list(prec = list(prior = "loggamma", param = c(1, 0.1))),
-                       list(prec = list(prior = "loggamma", param = c(1, 1))))
+prior.list = list(
+  default = list(prec = list(prior = "loggamma", param = c(1, 0.00005))),
+  half.normal = list(prec = list(prior = HN.prior)),
+  half.cauchy = list(prec = list(prior = HC.prior)),
+  h.t = list(prec = list(prior = HT.prior)),
+  uniform = list(prec = list(prior = UN.prior)),
+  pc.prec = list(prec = list(prior = "pc.prec", param = c(5, 0.01)))
+) 
+
 require(pbapply)
-mod_list = pblapply(1:nrow(lg_options),function(f) {print(f);gc();
-  iid_prior_u = iid_prior_y = list(prec = list(prior = "loggamma", param = lg_options[f,]))
+mod_list = pblapply(prior.list,function(f) {print(f);gc();
+  iid_prior_u = iid_prior_y = f
   tmod = inla(form0x,family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
        control.fixed = list(expand.factor.strategy = "model.matrix"),
        control.family = famcontrol,
@@ -449,10 +458,12 @@ mod_list = pblapply(1:nrow(lg_options),function(f) {print(f);gc();
        control.results = cres,
        data=idat, control.compute = list(waic=TRUE),
        control.predictor=list(compute=TRUE),verbose=F)
-  list(waic = tmod$waic$waic, fe = tmod$summary.fixed,re = tmod$summary.random)
 },cl = 4)
 
-
+summary(mod_list[[1]])
+mod_list[[1]]$marginals.fixed$
+mod_list[[1]]$summary.hyperpar
+mod_list[[1]]$marginals.hyperpar$`Precision for u_forest_id`
 sapply(mod_list,function(x) x$waic$waic)
 
 res = rbindlist(lapply(seq_along(mod_list),function(x) data.table(prior = x,

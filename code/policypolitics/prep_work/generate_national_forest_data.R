@@ -30,6 +30,8 @@ admin_districts$FOREST_ID = admin_districts$FORESTORGC
 admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
 #admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
 
+
+
 congress_ids = data.table(congress = rep(101:116,each=2),CALENDAR_YEAR = 1989:2020)
 # make every forest/year combination
 tdt = expand.grid(sort(unique(as.character(admin_districts$FOREST_ID))),first_year:last_year)
@@ -539,7 +541,6 @@ setnames(gross_receipts,'National Forest Code','FOREST_ID')
 gross_receipts$FOREST_ID <- formatC(gross_receipts$FOREST_ID,width = 4, flag = 0)
 setnames(gross_receipts, 'Inflation Adjusted Total Gross Receipts','Total_Gross_Receipts')
 require(dplyr)
-
 
 setnames(gross_receipts,
 c("Inflation Adjusted Class1 - Timber","Inflation Adjusted Class2 - Grazing East",      

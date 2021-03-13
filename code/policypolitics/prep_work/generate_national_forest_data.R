@@ -139,7 +139,7 @@ county_econ[order(CFIPS,YEAR),Prop_NaturalResourceEmployment:=zoo::na.locf(Prop_
 setkey(county_econ,CFIPS)
 setkey(county_over,CFIPS)
 county_econ = county_econ[county_over,]
-forest_weighted_econ = county_econ[,lapply(.SD,weighted.mean,w=prop_in_county), by=.(FOREST_ID,YEAR),.SDcols = c("LAU_January","LAU_October","NaturalResources1M",'Prop_NaturalResourceEmployment')]
+forest_weighted_econ = county_econ[,lapply(.SD,weighted.mean,w=prop_in_county,na.rm = T), by=.(FOREST_ID,YEAR),.SDcols = c("LAU_January","LAU_October","NaturalResources1M",'Prop_NaturalResourceEmployment')]
 setnames(forest_weighted_econ,'YEAR','CALENDAR_YEAR')
 
 
@@ -471,19 +471,19 @@ temp_dt = merge(temp_dt,esa_counts,all.x = T)
 # 
 # 
 # ####### overlay subsurface mineral rights on ranger district
-mineral_rights_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/43324ab0ead14e4c8ffdecfdc62a22c8_0.geojson?outSR=%7B%22latestWkid%22:4269,%22wkid%22:4269%7D'
-mineral_rights <- st_read(mineral_rights_url)
-
-mineral_rights <- mineral_rights[!is.na(mineral_rights$ACTIONDATE),]
-mineral_rights <- st_transform(mineral_rights,crs = st_crs(albersNA))
-mineral_rights  <- st_make_valid(mineral_rights)
-mineral_rights$CALENDAR_YEAR = mineral_rights$ACTIONFISC
-mineral_rights <- mineral_rights[ymd(mineral_rights$ACTIONDATE)  < ymd('2004-01-01'),]
-mineral_rights = mineral_rights[!is.na(mineral_rights$ACTIONDATE),]
-mineral_rights = mineral_rights[year(ymd(mineral_rights$ACTIONDATE)) %in% 1993:2004,]
-over_minerals = st_intersects(admin_districts,mineral_rights)
-admin_districts$MINING_CLAIM_ACTIONS_1993_2004<- sapply(over_minerals,length)
-temp_dt$MINING_CLAIM_ACTIONS_1993_2004 <- admin_districts$MINING_CLAIM_ACTIONS_1993_2004[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
+# mineral_rights_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/43324ab0ead14e4c8ffdecfdc62a22c8_0.geojson?outSR=%7B%22latestWkid%22:4269,%22wkid%22:4269%7D'
+# mineral_rights <- st_read(mineral_rights_url)
+# 
+# mineral_rights <- mineral_rights[!is.na(mineral_rights$ACTIONDATE),]
+# mineral_rights <- st_transform(mineral_rights,crs = st_crs(albersNA))
+# mineral_rights  <- st_make_valid(mineral_rights)
+# mineral_rights$CALENDAR_YEAR = mineral_rights$ACTIONFISC
+# mineral_rights <- mineral_rights[ymd(mineral_rights$ACTIONDATE)  < ymd('2004-01-01'),]
+# mineral_rights = mineral_rights[!is.na(mineral_rights$ACTIONDATE),]
+# mineral_rights = mineral_rights[year(ymd(mineral_rights$ACTIONDATE)) %in% 1993:2004,]
+# over_minerals = st_intersects(admin_districts,mineral_rights)
+# admin_districts$MINING_CLAIM_ACTIONS_1993_2004<- sapply(over_minerals,length)
+# temp_dt$MINING_CLAIM_ACTIONS_1993_2004 <- admin_districts$MINING_CLAIM_ACTIONS_1993_2004[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
 
 # mineral_index = sapply(seq_along(temp_dt$CALENDAR_YEAR),function(x) which(mineral_rights$CALENDAR_YEAR<temp_dt$CALENDAR_YEAR[x]))
 # mineral_inters = st_intersects(admin_districts,mineral_rights)
@@ -495,16 +495,16 @@ temp_dt$MINING_CLAIM_ACTIONS_1993_2004 <- admin_districts$MINING_CLAIM_ACTIONS_1
 # # 
 # # 
 # ##### overlay rangeland on ranger districts
-allotments_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/6c1d57398aa44c36a6badb541f21e461_0.geojson?outSR=%7B%22latestWkid%22:3857,%22wkid%22:102100%7D'
-allotments <- st_read(allotments_url)
-allotments <- st_transform(allotments,crs = st_crs(albersNA))
-allotments  <- st_make_valid(allotments)
-allotments$CALENDAR_YEAR = allotments$NEPA_DEC_A
-allotments = allotments[allotments$CALENDAR_YEAR %in% 1999:2004,]
-over_allotments = st_intersects(admin_districts,allotments)
-admin_districts$ALLOTMENT_NEPA_1993_2004 <- sapply(over_allotments,length)
-temp_dt$ALLOTMENT_NEPA_1993_2004 <- admin_districts$ALLOTMENT_NEPA_1993_2004[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
-
+# allotments_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/6c1d57398aa44c36a6badb541f21e461_0.geojson?outSR=%7B%22latestWkid%22:3857,%22wkid%22:102100%7D'
+# allotments <- st_read(allotments_url)
+# allotments <- st_transform(allotments,crs = st_crs(albersNA))
+# allotments  <- st_make_valid(allotments)
+# allotments$CALENDAR_YEAR = allotments$NEPA_DEC_A
+# allotments = allotments[allotments$CALENDAR_YEAR %in% 1999:2004,]
+# over_allotments = st_intersects(admin_districts,allotments)
+# admin_districts$ALLOTMENT_NEPA_1993_2004 <- sapply(over_allotments,length)
+# temp_dt$ALLOTMENT_NEPA_1993_2004 <- admin_districts$ALLOTMENT_NEPA_1993_2004[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
+# 
 
 # allotments_index = sapply(seq_along(temp_dt$CALENDAR_YEAR),function(x) which(allotments$CALENDAR_YEAR<temp_dt$CALENDAR_YEAR[x]))
 # allotments_inters = st_intersects(ranger_districts,allotments)
@@ -602,3 +602,4 @@ temp_dt[order(FOREST_ID,CALENDAR_YEAR),Timber_Cut_MBF_4yr_Change_Perc:= (lag(Cut
 
 #temp_dt[!is.na(County_naturalresource_GDP),.N,by=.(CALENDAR_YEAR)]
 fwrite(temp_dt,'input/prepped/national_forest_covariates.csv')
+

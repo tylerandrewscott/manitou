@@ -601,5 +601,5 @@ temp_dt[order(FOREST_ID,CALENDAR_YEAR),Timber_Cut_MBF_4yr_Change_Perc:= (lag(Cut
 
 
 #temp_dt[!is.na(County_naturalresource_GDP),.N,by=.(CALENDAR_YEAR)]
-fwrite(temp_dt,'input/prepped/national_forest_covariates.csv')
+fwrite(temp_dt,'prepped/national_forest_covariates.csv')
 

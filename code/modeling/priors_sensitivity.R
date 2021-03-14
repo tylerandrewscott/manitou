@@ -1,7 +1,7 @@
 
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
-#if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
-require(INLA)
+if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
+
 packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
@@ -26,8 +26,11 @@ keep_purpose = TRUE
 td = tempdir()
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 
-admin_districts <- readRDS('scratch/admin_units_clean.RDS')
-fs = readRDS('input/prepped/fs_PALS_cleaned_project_datatable.RDS')
+admin_districts <- readRDS('../bucket_mount/manitou/scratch/admin_units_clean.RDS')
+st_crs(admin_districts) <- st_crs(albersNA)
+
+
+fs = readRDS('../bucket_mount/manitou/input/prepped/fs_PALS_cleaned_project_datatable.RDS')
 
 drop_sites = c("Savannah River Site" ,'El Yunque National Forest',
                "Land Between the Lakes National Recreation Area" ,  "Columbia River Gorge National Scenic Area" ,"Midewin National Tallgrass Prairie" )
@@ -38,6 +41,7 @@ drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNA
 file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
 states = tigris::states(class = 'sf')
 states <- st_transform(states,crs = st_crs(albersNA))
+
 test = st_within(st_centroid(admin_districts),states)
 admin_districts$STATE = states[unlist(test),]$STUSPS
 
@@ -62,8 +66,11 @@ us_counties <- st_crop(us_counties,st_bbox(admin_districts))
 
 #ggsave(plot = gg_forests,filename = 'output/policypolitics/figures/national_forests.png',width=7,height=6,units ='in',dpi = 300)
 
-nf = fread('input/prepped/national_forest_covariates.csv')
+nf = fread('../bucket_mount/manitou/input/prepped/national_forest_covariates.csv')
+
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
+
+#nf[is.na(nf$ln_County_naturalresource_GDP_1M),]
 
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
@@ -144,6 +151,7 @@ nf$Prop_Extraction_Employ = nf$Prop_NaturalResourceEmployment
 nf$Perc_Extraction_Employ = nf$Prop_Extraction_Employ * 100
 center_continuous_cov = TRUE
 
+nf[is.na(NaturalResources1M),][CALENDAR_YEAR %in% start_year:end_year,]
 
 admin_districts = admin_districts[!admin_districts$FOREST_ID%in% drop_units,]
 nf= nf[!nf$FOREST_ID%in%drop_units,]
@@ -246,6 +254,8 @@ if(period=='congress'){
 if(period=='CALENDAR_YEAR'){
   temp_nf = nf[order(FOREST_ID,get(period_type)),]}
 temp_dt = merge(temp_count,temp_nf,by = c('FOREST_ID',period_type))#,all=T,by = c('FOREST_ID',congress))
+
+temp_dt$ln_Receipts_Extraction_1M_P4[is.na(temp_dt$ln_Receipts_Extraction_1M_P4)] <- 0
 n = nrow(temp_dt)
 u = rowSums(temp_dt[,c('CE','EA','EIS'),with = F])
 narep = length(u)
@@ -315,6 +325,7 @@ idat$u_Unemp_Rate = c(scale(temp_dt$Unemp_Rate),rep(NA,narep))
 idat$u_Ln_Avg_MBF_Cut_1999_2004 = c(scale(temp_dt$Ln_Avg_MBF_Cut_1999_2004),rep(NA,narep))
 idat$u_ALLOTMENT_NEPA_1993_2004 = c(scale(temp_dt$ALLOTMENT_NEPA_1993_2004),rep(NA,narep))
 idat$u_MINING_CLAIM_ACTIONS_1993_2004 = c(scale(temp_dt$MINING_CLAIM_ACTIONS_1993_2004),rep(NA,narep))
+temp_dt$ln_Receipts_Extraction_1M_P4[is.na(temp_dt$ln_Receipts_Extraction_1M_P4)] <- 0
 idat$u_ln_Receipts_Extraction_1M_P4 = c(scale(temp_dt$ln_Receipts_Extraction_1M_P4),rep(NA,narep))
 idat$u_ln_Receipts_Recreation_1M_P4 = c(scale(temp_dt$ln_Receipts_Recreation_1M_P4),rep(NA,narep))
 idat$u_Perc_Extraction_Employ = c(scale(temp_dt$Perc_Extraction_Employ),rep(NA,narep))
@@ -339,8 +350,22 @@ idat$u_demCongress = c(temp_dt$demCongress,rep(NA,narep))
 idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
 idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
 idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
+
+which(is.na(idat$u_ln_County_naturalresource_GDP_1M))
+
+ee = do.call(rbind,lapply(tt,function(x) sum(is.na(x))))
+dd = data.table(ee)
+dd$coef = rownames(ee)
+
+
+dd[order(V1),][grepl('^u_',coef),]
+
+nf[STATE=='MT',]$ln_County_naturalresource_GDP_1M
+nf[is.na(ln_County_naturalresource_GDP_1M),][,.N,by=.(CALENDAR_YEAR,STATE)]$STATE
+
 # idat$u_ln_County_naturalresource_GDP_1M_L1 = c(scale(temp_dt$ln_County_naturalresource_GDP_1M_L1),rep(NA,narep))
 idat$n = n;idat$y = y;idat$u = u;
+
 
 
 
@@ -366,9 +391,9 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
 
 subtypes = grep('Extract',subtypes,value = T)
 
-
 u.sdres <- sd(idat$u,na.rm = T)
 y.sdres <- sd(idat$y/idat$u,na.rm=T)
+
 pc.prec.u = list(prec = list(prior = "pc.prec", param = c(3*u.sdres, 0.01)))
 pc.prec.y = list(prec = list(prior = "pc.prec", param = c(3*y.sdres, 0.01)))
 bprior <- list(prior = 'gaussian', param = c(0,1))
@@ -425,50 +450,102 @@ HC.prior  = "expression:
   return(log_dens);
 "
 
-famcontrol = list(list(prior = "pcprec", param = c(3*u.sdres,0.01)),
-                  list(prior = "pcprec", param = c(3*y.sdres,0.01)))
 
-lg_options = expand.grid(seq(0.25,10,0.5),seq(0.00005,2,0.025))
 
-pc.prec_priors = list(list(prec = list(prior = "pc.prec", param = c(0.25, 0.00005))),
-                       list(prec = list(prior = "pc.prec", param = c(1, 0.00005))),
-                       list(prec = list(prior = "pc.prec", param = c(2.5, 0.00005))),
-                       list(prec = list(prior = "pc.prec", param = c(5, 0.00005))),
-                       list(prec = list(prior = "pc.prec", param = c(10, 0.00005))),
-                       list(prec = list(prior = "pc.prec", param = c(1, 0.01))),
-                       list(prec = list(prior = "pc.prec", param = c(1, 0.1))),
-                       list(prec = list(prior = "pc.prec", param = c(1, 1))))
+require(MASS)
+require(aod)
+ nb_mod = glm.nb(u~ -1 + mu.u + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
+   u_ln_Receipts_Extraction_1M_P4 + u_Ln_ACRES + u_Wilderness_Perc +
+   u_Burned_Perc_Past5yrs + u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species +
+   u_Perc_WUI_Housing + u_demPres + u_demCongress + u_mrp_mean +
+   u_LCV_annual,data = lapply(idat,function(x) x[1:length(idat$u)]))
+ u.sdres <- sd(residuals(nb_mod))
+ 
+temp_dat = as.data.frame(lapply(idat,function(x) x[length(idat$u)+{1:length(idat$y)}]))
+keep_index = which(!is.na(idat$y))
+drop_index = which(is.na(idat$y))
+temp_dat = temp_dat[keep_index,]
+temp_dat$y = idat$y[keep_index]
+temp_dat$u = idat$u[keep_index]
+
+bin_mod = betabin(cbind(y,u-y) ~ 1 + 
+                    y_Unemp_Rate + 
+                 y_Perc_Extraction_Employ + 
+                    y_ln_County_naturalresource_GDP_1M +
+                 y_ln_Receipts_Extraction_1M_P4 + 
+                  y_Ln_ACRES + y_Wilderness_Perc +
+               y_Burned_Perc_Past5yrs + y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
+                 y_Perc_WUI_Housing + 
+                #y_demPres + y_demCongress + 
+                y_mrp_mean +
+                 y_LCV_annual,~1,data =  temp_dat)
+
+ bin_mod = glm(cbind(idat$y,idat$u - idat$y) ~ -1 + mu.y + y_Unemp_Rate + y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M +
+           y_ln_Receipts_Extraction_1M_P4 + y_Ln_ACRES + y_Wilderness_Perc +
+           y_Burned_Perc_Past5yrs + y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
+           y_Perc_WUI_Housing + y_demPres + y_demCongress + y_mrp_mean +
+           y_LCV_annual,family = binomial,data = lapply(idat,function(x) x[length(idat$u)+{1:length(idat$y)}]))
+ y.sdres <- sd(residuals(bin_mod))
+
+
+
+#pcprior <- list(prec = list(prior="pc.prec", param = c(3*sdres,0.01)))
+famcontrol = list(list(prior = "pcprec", param = c(u.sdres,0.01)),
+                  list(prior = "pcprec", param = c(y.sdres,0.01)))
 
 prior.list = list(
-  default = list(prec = list(prior = "loggamma", param = c(1, 0.00005))),
+  loggamma0.5 = list(prec = list(prior = "loggamma", param = c(0.5, 0.00005))),
+  loggamma1 = list(prec = list(prior = "loggamma", param = c(1, 0.00005))),
+  loggamma5 = list(prec = list(prior = "loggamma", param = c(5, 0.00005))),
   half.normal = list(prec = list(prior = HN.prior)),
   half.cauchy = list(prec = list(prior = HC.prior)),
   h.t = list(prec = list(prior = HT.prior)),
   uniform = list(prec = list(prior = UN.prior)),
-  pc.prec = list(prec = list(prior = "pc.prec", param = c(5, 0.01)))
+  pc.prec.1 = list(prec = list(prior = "pc.prec", param = c(1,0.01))),
+  pc.prec.3 = list(prec = list(prior = "pc.prec", param = c(3, 0.01))),
+  pc.prec.5 = list(prec = list(prior = "pc.prec", param = c(5, 0.01))),
+  pc.prec.10 = list(prec = list(prior = "pc.prec", param = c(10, 0.01))),
+  pc.prec.used = list(prec= list(prior = "pc.prec", param = c(u.sdres,0.01)),
+                      prec = list(prior = "pc.prec", param = c(y.sdres,0.01)))
 ) 
+
 
 require(pbapply)
 mod_list = pblapply(prior.list,function(f) {print(f);gc();
-  iid_prior_u = iid_prior_y = f
+  if(length(f)==1){iid_prior_u = iid_prior_y = f}
+  if(length(f)>1){
+  iid_prior_u <- list(prec= list(prior = "pc.prec", param = c(3*u.sdres,0.01)))
+  iid_prior_y <- list(prec = list(prior = "pc.prec", param = c(3*y.sdres,0.01)))
+  }
   tmod = inla(form0x,family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
-       control.fixed = list(expand.factor.strategy = "model.matrix"),
+       control.fixed = list(expand.factor.strategy = "model.matrix",prec = bprior),
        control.family = famcontrol,
-       #control.inla = cinla,
+       #control.inla = list(int.strategy='eb'),
        control.results = cres,
        data=idat, control.compute = list(waic=TRUE),
        control.predictor=list(compute=TRUE),verbose=F)
-},cl = 4)
+  tmod$prior = f
+  tmod
+},cl = 5)
 
-summary(mod_list[[1]])
-mod_list[[1]]$marginals.fixed$
-mod_list[[1]]$summary.hyperpar
-mod_list[[1]]$marginals.hyperpar$`Precision for u_forest_id`
+
 sapply(mod_list,function(x) x$waic$waic)
+
+hpars = lapply(mod_list,'[[','summary.hyperpar')
+
+hypers = rbindlist(hpars)
+hypers$prior = c(mapply(function(x,y) rep(x,y), x = names(hpars),y = sapply(hpars,nrow),SIMPLIFY = T))
+hypers$param = unlist(lapply(hpars,rownames))
+
+hypers$prior[hypers$prior=='pc.prec.10'] <- 'PC prior (10,0.01)'
+hypers$prior[hypers$prior=='pc.prec.3'] <- 'PC prior (3,0.01)'
+hypers$prior[hypers$prior=='pc.prec.1'] <- 'PC prior (1,0.01)'
+ggplot(hypers) + geom_errorbarh(aes(xmin = `0.025quant`,xmax = `0.975quant`,y=prior)) + facet_wrap(~param) + theme_bw()
+
+
 
 res = rbindlist(lapply(seq_along(mod_list),function(x) data.table(prior = x,
                                                                   mod_list[[x]]$summary.fixed,coef = rownames(mod_list[[x]]$summary.fixed))))
-
 res = res[grepl('Unemp|LCV',coef),]
 
 res$lik = ifelse(grepl('^u_',res$coef),'neg. binomial (project count)','beta-binomial (CE ratio)')
@@ -478,8 +555,9 @@ res$coef = ifelse(grepl(':',res$coef),'Unemp. % x LCV score',ifelse(grepl('Unemp
 ggplot(data = res,aes(x = prior,y = mean,ymin = `0.025quant`,ymax = `0.975quant`)) +
   geom_errorbar() + geom_point() + facet_wrap(coef~lik,ncol = 2) + coord_flip() + theme_bw()
 
-res
 
+mod_list$loggamma$summary.hyperpar
+mod_list$pc.prec.used.5$summary.hyperpar
 
 iid_priors = list(pc_prior_prec = list(prec = list(prior = "pc.prec", param = c(5,0.01))),
                   pc_prior_dof = list(prec = list(prior = "pc.dof", param = c(5,0.01))),
@@ -521,9 +599,6 @@ res$lik <- fct_inorder(as.factor(res$lik))
 res$coef = ifelse(grepl(':',res$coef),'Unemp. % x LCV score',ifelse(grepl('Unemp',res$coef),'Unemployment %','LCV score'))
 ggplot(data = res,aes(x = prior,y = mean,ymin = `0.025quant`,ymax = `0.975quant`)) +
   geom_errorbar() + geom_point() + facet_wrap(coef~lik,ncol = 2) + coord_flip() + theme_bw()
-
-
-
 
 
 

@@ -85,45 +85,14 @@ durations = fs[,list(mean(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=
 names(durations) <- c('Type','mean','median')
 
 #counts_by_type[FOREST_ID=='1004']
-
-nf$Num_Eco_Sections[nf$Num_Eco_Sections==0] <- 1
-nf = nf[order(FOREST_ID,get(period_type)),]
-nf = nf[, zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
-
-nf$Prop_Extraction_Employ = nf$Prop_Forestry_Employ + nf$Prop_Mining_Employ
-nf$Perc_Extraction_Employ = nf$Prop_Extraction_Employ*100
-nf$Prop_Outdoor_Employ = nf$Prop_HuntingFishing + nf$Prop_Recreation
-nf$Wilderness_Prop = as.numeric(nf$Wilderness_Prop)
-nf$Wilderness_Perc = nf$Wilderness_Prop * 100
-nf$Prop_WUI_Housing = as.numeric(nf$Prop_WUI_Housing)
-nf$Perc_WUI_Housing = 100 * nf$Prop_WUI_Housing
-nf$Burned_Prop_Past5yrs = as.numeric(nf$Burned_Prop_Past5yrs)
-nf$Burned_Perc_Past5yrs = nf$Burned_Prop_Past5yrs * 100
-nf$ACRES = admin_districts$GIS_ACRES[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
-nf$demCongress[nf$demCongress==2] <- 0
-nf$congress = as.character(nf$congress)
-nf$nominate_dim1  = nf$nominate_dim1  * -1
-nf$nominate_dim2  = nf$nominate_dim2  * -1
-nf$mrp_mean = nf$mrp_mean * -1
-
-nf$ComLCV = (nf$nrComLCV+nf$agComLCV)/2
-nf$ChairLCV = (nf$nrChairLCV + nf$agChairLCV)/2
-
-nf$Ln_ACRES = log(nf$ACRES)
-nf$Ln_AVERAGE_YEARLY_VISITS = log(nf$Average_Yearly_Visits)
+nf= nf[nf$FOREST_ID%in%admin_districts$FOREST_ID,]
 nf$USFS_REGION = admin_districts$REGION[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 
 library(zoo)
-nf = nf[order(FOREST_ID,congress),]
-nf = nf[order(FOREST_ID,congress), zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
-nf = nf[order(FOREST_ID,congress), na.locf(.SD, na.rm = FALSE,fromLast=TRUE),by = .(FOREST_ID)]
-nf$congress = as.numeric(nf$congress)
-nf$ln_County_naturalresource_GDP_1M = log(nf$NaturalResources1M+1)
-nf$Prop_Extraction_Employ = nf$Prop_NaturalResourceEmployment
-nf$Perc_Extraction_Employ = nf$Prop_Extraction_Employ * 100
+
 center_continuous_cov = TRUE
 
-nf= nf[nf$FOREST_ID%in%admin_districts$FOREST_ID,]
+
 
 
 
@@ -144,11 +113,6 @@ if(period_type !='congress'){
 all_combos = data.table(all_combos)
 subtypes = unique(counts_by_type$Project_Type)
 
-nf$ln_Receipts_Extraction_1M_P4 <- log(nf$Receipts_TimberMineralsGrazing_P4/1e6+1)
-nf$ln_Receipts_Recreation_1M_P4 <- log(nf$Receipts_Recreation_P4/1e6+1)
-
-#setnames(nf,'LAU','Unemp_Rate')
-nf = nf[order(FOREST_ID,CALENDAR_YEAR),Unemp_Rate:=lag(LAU_October),by = .(FOREST_ID)]
 nf$STATE = admin_districts$STATE[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,LCV_annual,CALENDAR_YEAR)])
@@ -272,8 +236,6 @@ congress_index = data.table(congress_id = sort(unique(nf$congress)),index = seq_
 
 subtypes =  "Type_Purpose_Extractive" 
 mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period = period_type
-
-
   temp_count = project_type_counts_for_model[Project_Type==mod,,]
   temp_count = dcast(temp_count ,get(period_type) + FOREST_ID ~ DECISION_TYPE,fill = 0,value.var = 'N')
   setnames(temp_count,'period_type',period_type)
@@ -287,6 +249,7 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   u = rowSums(temp_dt[,c('CE','EA','EIS'),with = F])
   narep = length(u)
   y <- ifelse(u>0,temp_dt$CE,NA)
+  
   idat <- list(Y=matrix(NA,2*n,2))
   idat$Y[1:n,1] <- u
   idat$Y[n+1:n,2] <- y

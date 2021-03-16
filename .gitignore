@@ -1,6 +1,6 @@
 *.RDS
 *.csv
-!prepped/*
+!policypolitics/*
 inputs/*
 scratch/*
 deliverables/*

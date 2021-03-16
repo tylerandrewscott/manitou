@@ -459,8 +459,9 @@ cres <- list(return.marginals.predictor = FALSE,
                                                                   control.fixed = list(expand.factor.strategy = "inla",prec = bprior),
                                                                   control.family = famcontrol,
                                                                   control.results = cres,
-                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE,cpo=TRUE,config = TRUE),
-                                                                  control.predictor=list(compute=TRUE),verbose=F)},cl = 5)
+                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE),
+                                                                  control.predictor=list(compute=TRUE),verbose=F)},cl = 1)
   names(mod_list) <- list_of_forms
-    saveRDS(mod_list,paste0('policypolitics/model_objects/models_',subtypes,'.RDS'))
+
+  saveRDS(mod_list,paste0('policypolitics/model_objects/models_',subtypes,'.RDS'))
 

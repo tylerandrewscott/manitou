@@ -1,6 +1,4 @@
-*.RDS
-*.csv
-!policypolitics/*
+
 inputs/*
 scratch/*
 deliverables/*
@@ -8,3 +6,4 @@ output/*
 .Rproj.user
 .DS_Store
 */.DS_Store
+*.Rout

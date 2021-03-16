@@ -29,9 +29,6 @@ admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
 admin_districts$FOREST_ID = admin_districts$FORESTORGC
 admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
 #admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-
-
-
 congress_ids = data.table(congress = rep(101:116,each=2),CALENDAR_YEAR = 1989:2020)
 # make every forest/year combination
 tdt = expand.grid(sort(unique(as.character(admin_districts$FOREST_ID))),first_year:last_year)
@@ -275,7 +272,11 @@ temp_dt = temp_dt[CALENDAR_YEAR>=first_year&CALENDAR_YEAR<=last_year]
 temp_dt = temp_dt[!is.na(congress),]
 
 
-use = readRDS('input/prepped/forestUseAverage_2005-2014.RDS')
+<<<<<<< Updated upstream
+use = readRDS('policypolitics/prepped/forestUseAverage_2005-2014.RDS')
+=======
+use = readRDS('policypolitics/prepped/ forestUseAverage_2005-2014.RDS')
+>>>>>>> Stashed changes
 use$FOREST_ID = paste0(use$REGION,use$FORESTNUMB)
 
 temp_dt$Average_Yearly_Visits = use$visits[match(temp_dt$FOREST_ID,use$FOREST_ID)]
@@ -377,9 +378,6 @@ setkey(limit_area_by_year,'FOREST_ID','CALENDAR_YEAR')
 setkey(temp_dt,'FOREST_ID','CALENDAR_YEAR')
 
 temp_dt = temp_dt[limit_area_by_year,]
-
-
-
 
 
 esa = fread('input/usfs_internal_data/temp_dts_tep_group_species_sort_11jul08.csv')
@@ -635,5 +633,5 @@ temp_dt$ln_County_naturalresource_GDP_1M = log(temp_dt$NaturalResources1M+1)
 temp_dt$Prop_Extraction_Employ = temp_dt$Prop_NaturalResourceEmployment
 temp_dt$Perc_Extraction_Employ = temp_dt$Prop_Extraction_Employ * 100
 
-fwrite(temp_dt,'prepped/national_forest_covariates.csv')
+fwrite(temp_dt,'policypolitics/prepped/national_forest_covariates.csv')
 

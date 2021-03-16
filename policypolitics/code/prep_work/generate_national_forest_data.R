@@ -272,11 +272,8 @@ temp_dt = temp_dt[CALENDAR_YEAR>=first_year&CALENDAR_YEAR<=last_year]
 temp_dt = temp_dt[!is.na(congress),]
 
 
-<<<<<<< Updated upstream
 use = readRDS('policypolitics/prepped/forestUseAverage_2005-2014.RDS')
-=======
-use = readRDS('policypolitics/prepped/ forestUseAverage_2005-2014.RDS')
->>>>>>> Stashed changes
+
 use$FOREST_ID = paste0(use$REGION,use$FORESTNUMB)
 
 temp_dt$Average_Yearly_Visits = use$visits[match(temp_dt$FOREST_ID,use$FOREST_ID)]
@@ -326,6 +323,7 @@ desig_years <- st_transform(desig_years,crs = st_crs(albersNA))
 desig_years <- st_make_valid(desig_years)
 forest_wilderness_intersects = st_intersection(admin_districts,desig_years)
 forest_wilderness_intersects$area = st_area(forest_wilderness_intersects)
+
 
 forest_wilderness_area = data.table(forest_wilderness_intersects)
 wilderness_area_by_year = rbindlist(lapply(first_year:last_year,function(y) forest_wilderness_area[YearDesign<y,sum(area),by=.(FOREST_ID)][,CALENDAR_YEAR:=y]))
@@ -380,49 +378,49 @@ setkey(temp_dt,'FOREST_ID','CALENDAR_YEAR')
 temp_dt = temp_dt[limit_area_by_year,]
 
 
-esa = fread('input/usfs_internal_data/temp_dts_tep_group_species_sort_11jul08.csv')
-esa$temp_dt = esa$`Forest and or Grassland with Species`
-esa$temp_dt <- gsub('temp_dts','National Forests',esa$temp_dt)
-esa$temp_dt <- gsub('temp_dt','National Forest',esa$temp_dt)
-esa$temp_dt <- gsub('Grasslnds','Grasslands',esa$temp_dt)
-esa$temp_dt <- gsub('\\/','-',esa$temp_dt)
-esa = esa[temp_dt!='']
+esa = fread('input/usfs_internal_data/nfs_tep_group_species_sort_11jul08.csv')
+esa$nf = esa$`Forest and or Grassland with Species`
+esa$nf <- gsub('NFS','National Forests',esa$nf)
+esa$nf <- gsub('NF','National Forest',esa$nf)
+esa$nf <- gsub('Grasslnds','Grasslands',esa$nf)
+esa$nf <- gsub('\\/','-',esa$nf)
+esa = esa[nf!='']
 
-esa$temp_dt[grepl('Alabama',esa$temp_dt)] <- "National Forests in Alabama"
-esa$temp_dt[grepl('North Carolina',esa$temp_dt)] <- "National Forests in North Carolina"
-esa$temp_dt[grepl('Mississippi',esa$temp_dt)] <- "National Forests in Mississippi"
-esa$temp_dt[grepl('Florida',esa$temp_dt)] <- "National Forests in Florida"
-esa$temp_dt[grepl('Texas',esa$temp_dt)] <- "National Forests in Texas"
-esa$temp_dt[grepl('Finger Lakes|Green Mountain',esa$temp_dt)] <- "Green Mountain and Finger Lakes National Forests"
-esa$temp_dt[grepl('Custer|Gallatin',esa$temp_dt)] <- "Custer Gallatin National Forest"
-esa$temp_dt[grepl('Helena|Lewis-Clark',esa$temp_dt)] <- "Helena-Lewis and Clark National Forest"
-esa$temp_dt[grepl('Uinta|Wasatch|Cache',esa$temp_dt)] <- "Uinta-Wasatch-Cache National Forest"
-esa$temp_dt[grepl('Salmon|Challis',esa$temp_dt)] <-"Salmon-Challis National Forest"
-esa$temp_dt[grepl('Nebraska',esa$temp_dt)] <-"Nebraska National Forest"
-esa$temp_dt[grepl('Nez|Clearwater',esa$temp_dt)] <-"Nez Perce-Clearwater National Forest"
-esa$temp_dt[grepl('Humboldt|Toiyabe',esa$temp_dt)] <-"Humboldt-Toiyabe National Forest"
-esa$temp_dt[grepl('Caribou|Targhee',esa$temp_dt)] <-"Caribou-Targhee National Forest"
-esa$temp_dt[grepl('Arapaho|Roosev',esa$temp_dt)] <-"Arapaho and Roosevelt National Forests"
-esa$temp_dt[grepl('Midewin',esa$temp_dt)] <-"Midewin National Tallgrass Prairie"
-esa$temp_dt[grepl('Rogue|Siskiyou',esa$temp_dt)] <-"Rogue River-Siskiyou National Forests"
-esa$temp_dt[grepl('Baker|Snoqualmie',esa$temp_dt)] <-"Mt. Baker-Snoqualmie National Forest"
-esa$temp_dt[grepl('Huron|Manistee',esa$temp_dt)] <-"Huron-Manistee National Forest"
-esa$temp_dt[grepl('Tahoe Basin MU',esa$temp_dt)] <-"Lake Tahoe Basin Management Unit"
-esa$temp_dt[grepl('Yunque',esa$temp_dt)] <-"El Yunque National Forest" 
-esa$temp_dt[grepl('Land Between',esa$temp_dt)] <-"Land Between the Lakes National Recreation Area" 
-esa$temp_dt[grepl('Pike|San Isabel',esa$temp_dt)] <- "Pike and San Isabel National Forests"
-esa$temp_dt[grepl('Manti|LaSal|La Sal',esa$temp_dt)] <-"Manti-La Sal National Forest"
-esa$temp_dt[grepl('Medicine Bow|Routt',esa$temp_dt)] <-"Medicine Bow-Routt National Forest"
-esa$temp_dt[grepl('Uncompahgre|Gunnison',esa$temp_dt)] <- "Grand Mesa, Uncompahgre and Gunnison National Forests"
-switch = which(!esa$temp_dt %in% admin_districts$FORESTNAME & paste(esa$temp_dt,'National Forest') %in% admin_districts$FORESTNAME)
-esa$temp_dt[switch] <- paste(esa$temp_dt[switch],'National Forest')
+esa$nf[grepl('Alabama',esa$nf)] <- "National Forests in Alabama"
+esa$nf[grepl('North Carolina',esa$nf)] <- "National Forests in North Carolina"
+esa$nf[grepl('Mississippi',esa$nf)] <- "National Forests in Mississippi"
+esa$nf[grepl('Florida',esa$nf)] <- "National Forests in Florida"
+esa$nf[grepl('Texas',esa$nf)] <- "National Forests in Texas"
+esa$nf[grepl('Finger Lakes|Green Mountain',esa$nf)] <- "Green Mountain and Finger Lakes National Forests"
+esa$nf[grepl('Custer|Gallatin',esa$nf)] <- "Custer Gallatin National Forest"
+esa$nf[grepl('Helena|Lewis-Clark',esa$nf)] <- "Helena-Lewis and Clark National Forest"
+esa$nf[grepl('Uinta|Wasatch|Cache',esa$nf)] <- "Uinta-Wasatch-Cache National Forest"
+esa$nf[grepl('Salmon|Challis',esa$nf)] <-"Salmon-Challis National Forest"
+esa$nf[grepl('Nebraska',esa$nf)] <-"Nebraska National Forest"
+esa$nf[grepl('Nez|Clearwater',esa$nf)] <-"Nez Perce-Clearwater National Forest"
+esa$nf[grepl('Humboldt|Toiyabe',esa$nf)] <-"Humboldt-Toiyabe National Forest"
+esa$nf[grepl('Caribou|Targhee',esa$nf)] <-"Caribou-Targhee National Forest"
+esa$nf[grepl('Arapaho|Roosev',esa$nf)] <-"Arapaho and Roosevelt National Forests"
+esa$nf[grepl('Midewin',esa$nf)] <-"Midewin National Tallgrass Prairie"
+esa$nf[grepl('Rogue|Siskiyou',esa$nf)] <-"Rogue River-Siskiyou National Forests"
+esa$nf[grepl('Baker|Snoqualmie',esa$nf)] <-"Mt. Baker-Snoqualmie National Forest"
+esa$nf[grepl('Huron|Manistee',esa$nf)] <-"Huron-Manistee National Forest"
+esa$nf[grepl('Tahoe Basin MU',esa$nf)] <-"Lake Tahoe Basin Management Unit"
+esa$nf[grepl('Yunque',esa$nf)] <-"El Yunque National Forest" 
+esa$nf[grepl('Land Between',esa$nf)] <-"Land Between the Lakes National Recreation Area" 
+esa$nf[grepl('Pike|San Isabel',esa$nf)] <- "Pike and San Isabel National Forests"
+esa$nf[grepl('Manti|LaSal|La Sal',esa$nf)] <-"Manti-La Sal National Forest"
+esa$nf[grepl('Medicine Bow|Routt',esa$nf)] <-"Medicine Bow-Routt National Forest"
+esa$nf[grepl('Uncompahgre|Gunnison',esa$nf)] <- "Grand Mesa, Uncompahgre and Gunnison National Forests"
+switch = which(!esa$nf %in% admin_districts$FORESTNAME & paste(esa$nf,'National Forest') %in% admin_districts$FORESTNAME)
+esa$nf[switch] <- paste(esa$nf[switch],'National Forest')
 
-switch = which(!esa$temp_dt %in% admin_districts$FORESTNAME & paste(esa$temp_dt,'National Forests') %in% admin_districts$FORESTNAME)
-esa$temp_dt[switch] <- paste(esa$temp_dt[switch],'National Forests')
-esa_counts = esa[,.N,by = .(temp_dt)]
+switch = which(!esa$nf %in% admin_districts$FORESTNAME & paste(esa$nf,'National Forests') %in% admin_districts$FORESTNAME)
+esa$nf[switch] <- paste(esa$nf[switch],'National Forests')
+esa_counts = esa[,.N,by = .(nf)]
 setnames(esa_counts,'N','Count_EorT_Species')
-esa_counts$FOREST_ID = admin_districts$FOREST_ID[match(esa_counts$temp_dt,admin_districts$FORESTNAME)]
-esa_counts[,temp_dt:=NULL]
+esa_counts$FOREST_ID = admin_districts$FOREST_ID[match(esa_counts$nf,admin_districts$FORESTNAME)]
+esa_counts[,nf:=NULL]
 
 #https://www.fs.usda.gov/Internet/FSE_DOCUMENTS/fsbdev2_037582.pdf
 ak_counts = data.table(FOREST_ID=c('1004','1005'),Count_EorT_Species = c(18,20))
@@ -534,18 +532,18 @@ temp_dt$Num_Eco_Sections = sapply(over_eco_sections,length)[temp_dt$index_in_for
 
 gross_receipts <- read_excel('input/USFSGrossReceipts.xlsx',skip = 3)
 gross_receipts <- data.table(gross_receipts )
-gross_receipts = gross_receipts[,c('Year','National Forest Code',grep('Itemp_dtlation Adjusted (Class|Total Gross)',names(gross_receipts),value = T)),with = F]
+gross_receipts = gross_receipts[,c('Year','National Forest Code',grep('Inflation Adjusted (Class|Total Gross)',names(gross_receipts),value = T)),with = F]
 setnames(gross_receipts,'National Forest Code','FOREST_ID')
 gross_receipts$FOREST_ID <- formatC(gross_receipts$FOREST_ID,width = 4, flag = 0)
-setnames(gross_receipts, 'Itemp_dtlation Adjusted Total Gross Receipts','Total_Gross_Receipts')
+setnames(gross_receipts, 'Inflation Adjusted Total Gross Receipts','Total_Gross_Receipts')
 require(dplyr)
 
 setnames(gross_receipts,
-c("Itemp_dtlation Adjusted Class1 - Timber","Itemp_dtlation Adjusted Class2 - Grazing East",      
-"Itemp_dtlation Adjusted Class3 - Land Use","Itemp_dtlation Adjusted Class4 - Recreation Special Uses",
-"Itemp_dtlation Adjusted Class5 - Power" ,"Itemp_dtlation Adjusted Class6 - Minerals",  
-"Itemp_dtlation Adjusted Class7 - Recreation User Fees" ,"Itemp_dtlation Adjusted Class8 - Grazing West",           
-"Itemp_dtlation Adjusted Class9 - Quartz Crystals"),
+c("Inflation Adjusted Class1 - Timber","Inflation Adjusted Class2 - Grazing East",      
+"Inflation Adjusted Class3 - Land Use","Inflation Adjusted Class4 - Recreation Special Uses",
+"Inflation Adjusted Class5 - Power" ,"Inflation Adjusted Class6 - Minerals",  
+"Inflation Adjusted Class7 - Recreation User Fees" ,"Inflation Adjusted Class8 - Grazing West",           
+"Inflation Adjusted Class9 - Quartz Crystals"),
 c('Receipts_Timber','Receipts_Grazing_East','Receipts_Land_Use','Receipts_Recreation_SU',
   'Receipts_Power','Receipts_Minerals','Receipts_Recreation_UF','Receipts_Grazing_West',
   'Receipts_Quartz'))
@@ -599,7 +597,9 @@ temp_dt[order(FOREST_ID,CALENDAR_YEAR),Timber_Cut_MBF_4yr_Change_Perc:= (lag(Cut
 
 
 temp_dt$Num_Eco_Sections[temp_dt$Num_Eco_Sections==0] <- 1
-temp_dt = temp_dt[order(FOREST_ID,get(period_type)),]
+
+
+temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress),]
 temp_dt = temp_dt[, zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
 temp_dt$Prop_Extraction_Employ = temp_dt$Prop_Forestry_Employ + temp_dt$Prop_Mining_Employ
 temp_dt$Perc_Extraction_Employ = temp_dt$Prop_Extraction_Employ*100
@@ -625,13 +625,20 @@ temp_dt$Ln_ACRES = log(temp_dt$ACRES)
 temp_dt$Ln_AVERAGE_YEARLY_VISITS = log(temp_dt$Average_Yearly_Visits)
 
 library(zoo)
-temp_dt = temp_dt[order(FOREST_ID,congress),]
-temp_dt = temp_dt[order(FOREST_ID,congress), zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
-temp_dt = temp_dt[order(FOREST_ID,congress), na.locf(.SD, na.rm = FALSE,fromLast=TRUE),by = .(FOREST_ID)]
+temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress),]
+temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress), zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
+temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress), na.locf(.SD, na.rm = FALSE,fromLast=TRUE),by = .(FOREST_ID)]
 temp_dt$congress = as.numeric(temp_dt$congress)
 temp_dt$ln_County_naturalresource_GDP_1M = log(temp_dt$NaturalResources1M+1)
 temp_dt$Prop_Extraction_Employ = temp_dt$Prop_NaturalResourceEmployment
 temp_dt$Perc_Extraction_Employ = temp_dt$Prop_Extraction_Employ * 100
+
+
+temp_dt$`Avg_MBF_Cut_1999-2004`[is.na(temp_dt$`Avg_MBF_Cut_1999-2004`)]<-0
+temp_dt$Ln_Avg_MBF_Cut_1999_2004 = log(temp_dt$`Avg_MBF_Cut_1999-2004`+0.001)
+temp_dt$ln_Receipts_Extraction_1M_P4 <- log(temp_dt$Receipts_TimberMineralsGrazing_P4/1e6+1)
+temp_dt$ln_Receipts_Recreation_1M_P4 <- log(temp_dt$Receipts_Recreation_P4/1e6+1)
+temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR),Unemp_Rate:=lag(LAU_October),by = .(FOREST_ID)]
 
 fwrite(temp_dt,'policypolitics/prepped/national_forest_covariates.csv')
 

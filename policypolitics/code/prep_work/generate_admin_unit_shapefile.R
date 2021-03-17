@@ -26,7 +26,9 @@ admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
 admin_districts$FOREST_ID = admin_districts$FORESTORGC
 admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
 drop_sites = c("Savannah River Site" ,'El Yunque National Forest',
-               "Land Between the Lakes National Recreation Area" ,  "Columbia River Gorge National Scenic Area" ,"Midewin National Tallgrass Prairie" )
+               "Land Between the Lakes National Recreation Area" , 
+               "Columbia River Gorge National Scenic Area" ,
+               "Midewin National Tallgrass Prairie" )
 drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNAME)]
 admin_districts = admin_districts[!admin_districts$FOREST_ID%in% drop_units,]
 saveRDS(admin_districts,'prepped/admin_units_clean.RDS')

@@ -22,10 +22,10 @@ keep_activities = FALSE
 keep_purpose = TRUE
 
 
-td = tempdir()
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-
 admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
+admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
+
 fs = readRDS('policypolitics/prepped/fs_PALS_cleaned_project_datatable.RDS')
 
 #system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
@@ -227,7 +227,6 @@ if(period_type!='congress'){
   input_data = input_data[Project_Type=='Type_Purpose_Extractive',][period_type>=start_year&period_type<=end_year,]}
 
 yheight = input_data[,.N,by = .(Tot_Proj)][N==max(N),]$N
-
 
 forest_index = data.table(forest_id = sort(unique(nf$FOREST_ID)),index = seq_along(unique(nf$FOREST_ID)))
 region_index = data.table(region_id = sort(unique(nf$USFS_REGION)),index = seq_along(unique(nf$USFS_REGION)))

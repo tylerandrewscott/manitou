@@ -183,6 +183,10 @@ ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
 ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
 
 
+htmlTable(ext_dt_lcv[,.(group,x1_quantile,x2_quantile,mean = round(mean,3),`0.025quant` = round(`0.025quant`,3),`0.975quant` = round(`0.975quant`,3))],
+          file = 'policypolitics/tables_figures/tables/interaction_combination_values.html')
+ext_dt_lcv
+
 ((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'&!grepl('alt',form)],
        aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
            ymax = `0.975quant`,group = as.factor(x2_quantile),

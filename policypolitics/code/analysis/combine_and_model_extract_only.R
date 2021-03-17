@@ -43,9 +43,6 @@ us_counties = counties(class = 'sf',year = 2017)
 us_counties = st_transform(us_counties ,albersNA)
 
 
-congress2015 = tigris::congressional_districts(year = 2015,class = 'sf')
-congress2015  = st_transform(congress2015 ,albersNA)
-
 states = tigris::states(class = 'sf',year = 2015)
 states = st_transform(states,albersNA)
 states <- st_crop(states,st_bbox(admin_districts))
@@ -56,7 +53,7 @@ nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
 
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
-
+nf[!nf$FOREST_ID %in% admin_districts$FOREST_ID,]
 #install.packages("ggcorrplot")
 require(ggcorrplot)
 
@@ -208,7 +205,12 @@ swap_names = fct_recode(swap_names,
 colnames(coef_vals) <- as.character(swap_names)
 
 
-coef_html_table = stargazer(coef_vals,summary = T,out = 'policypolitics/tables_figures/tables/variable_summaries.html')
+sumvals = coef_vals[,-c('FOREST_ID','CALENDAR_YEAR',grep(' x ',names(coef_vals),value = T)),with = F]
+
+
+coef_html_table = stargazer(sumvals,summary = T,digits = 3,digits.extra = 0,
+                            summary.stat =c('min','mean','median','max'), 
+                            out = 'policypolitics/tables_figures/tables/table1_variable_summaries.html')
 
 corr <- round(cor(coef_vals[,-c('FOREST_ID','CALENDAR_YEAR')],use = 'pairwise.complete.obs'), 2)
 
@@ -414,7 +416,6 @@ cres <- list(return.marginals.predictor = FALSE,
   ######### not returning marginals greatly reduces object size #######
   cres <- list(return.marginals.predictor = FALSE, 
                return.marginals.random = FALSE)
-  
   require(pbapply)
   mod_list = pblapply(list_of_forms,function(f) {print(f);gc();inla(get(f),
                                                                   family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,

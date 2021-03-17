@@ -14,18 +14,9 @@
    albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
  
   admin_districts <- readRDS('prepped/admin_units_clean.RDS')
-
-  admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
-  admin_districts$FOREST_ID = admin_districts$FORESTORGC
-  admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-  file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
   locs = 'output/policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name =c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
-  model_sets = list.files('output/policypolitics/model_objects/','Purpose.*Ext')
-  model_names = str_remove(model_sets,'^models_Type_Purpose_Ex')
 
-  # lapply(seq_along(mod_name_sets),function(mod){
-  mod = 1
   
   mod_list = readRDS(paste0('policypolitics/model_objects/models_Type_Purpose_Extractive.RDS'))
 
@@ -39,9 +30,9 @@
  grid.arrange(congressA,congressB,ncol = 2)
  
  (waic_table = as.data.table(lapply(mod_list,function(y) y$waic$waic)))
-  #colnames(waic_table) <- names(model_list_of_lists)
-  fwrite(waic_table,'policypolitics/tables_figures/tables/waic_table.csv')
+  colnames(waic_table) <- names(model_list_of_lists)
   
+ fwrite(waic_table,'policypolitics/tables_figures/tables/waic_table.csv')
 
   coef_df = rbindlist(lapply(seq_along(mod_list), function(y) {
     mod_list[[y]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.), mod = y,DV = names(mod_list)[y])}))
@@ -49,14 +40,16 @@
         formatC(round(coef_df$`0.025quant`,3),digits = 3,flag = 0),', ',
         formatC(round(coef_df$`0.975quant`,3),digits = 3,flag = 0),')'))
   coef_df$DV <- 'Extractive'
+  coef_df$coef <- fct_inorder(coef_df$coef)
+  coef_df = coef_df[mod%in%c(1,2),]
+  
   coef_df_s1 = coef_df[grepl('Extr',DV),.(coef,cred,mod)][grepl('^u|mu\\.u',coef),]
   coef_df_s2 = coef_df[grepl('Extr',DV),.(coef,cred,mod)][!grepl('^u|mu\\.u',coef),]
   
-  coef_df$coef <- fct_inorder(coef_df$coef)
+
   coef_cast1 = dcast(coef_df_s1,coef ~ mod,value.var = 'cred',fill = '---')
   coef_cast2 = dcast(coef_df_s2,coef ~ mod,value.var = 'cred',fill = '---')
   library(R2HTML)
-  
   simple_table = cbind(coef_cast1[,c(1:3)],  coef_cast2[,c(2:3)])
   simple_table$coef <- gsub('^y_|^u_','',simple_table$coef )
   simple_table$coef <- gsub(':y_|:u_','x',simple_table$coef)
@@ -73,13 +66,11 @@
                                  'ln(county NR GDP ($1M))' = 'ln_County_naturalresource_GDP_1M',
                                  'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
                                  "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
+                                 'Public ideology' = 'mrp_mean',
                                  'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
                                  'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual')
   
   simple_table$coef  = fct_relevel( simple_table$coef ,'ln(forest acreage)','ln(yearly visitation)',
-              'ln(avg. board feet, 1999 to 2004)' ,
-              'NEPA grazing actions, 1993 to 2004' ,
-              'Mining claim actions, 1993 to 2004',
               '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
               '% extraction employ.','ln(county NR GDP ($1M))',
               'Democratic president','Democratic congress',
@@ -87,15 +78,13 @@
               "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
 
 
-temp_coef_table = simple_table[order(coef,)]
+temp_coef_table = simple_table
 library(tableHTML)
-write_tableHTML(tableHTML(temp_coef_table), file = 'policypolitics/tables_figures/tables/coefficient_estimates.html')
+  ht = tableHTML(temp_coef_table,rownames = F,footer = paste0('WAIC scores-Model 1: ',round(as.numeric(waic_table[1,1])),'; Model 2: ',round(as.numeric(waic_table[1,2]))), headers = c('parameter','Model 1: baseline','Model 2: LCV x % unemp.','Model 1: baseline','Model 2: LCV x % unemp.'),
+          second_headers = list(c(1,2,2),c('','# projects (neg. binomial)','CE ratio (beta-binomial)')))
+write_tableHTML(ht, file = 'policypolitics/tables_figures/tables/tableB2_coefficient_estimates.html')
 
 
-  HTML(coef_cast1, file = paste0('policypolitics/tables_figures/tables/extractive_coefs.html'),row.names = F)
-  HTML(coef_cast2, file = paste0('policypolitics/tables_figures/tables/extractive_coefs.html'),row.names = F)
-
-  
   coef_results = rbindlist(lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>%
            mutate(specification = x,coef = rownames(.),  form =   names(mod_list)[x])))
   
@@ -170,72 +159,13 @@ lapply(seq_along(variations),function(x) {
   guides(shape = FALSE,fill = FALSE) + 
   ggtitle('Extractive projects') +
   NULL
-ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
-})
-
-
-temp = extract_coefs[grepl('Annual LCV',specification),]
-temp$specification = 'Posterior estimates'
-(lcv1 = ggplot(temp,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
-                        y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
-    geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
-    geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
-    geom_point(position = position_dodgev(0.5),pch = 19,size = 1.5) + 
-    geom_point(position = position_dodgev(0.5),pch = 21,size = 1.5) + 
-    # facet_grid(~specification,scales = 'fixed') + 
-    theme_bw() + 
-    theme(legend.position = c(0.3,-0.14),axis.ticks.y = element_blank(),
-          legend.direction = 'horizontal',axis.title.y = element_blank(),
-          
-          text = element_text(family = 'Times'),plot.margin = unit(c(.1,.1,1.1,.1),units = 'cm'),
-          # legend.title.align = -1,legend.justification = -1,
-          legend.background = element_rect(fill = NA),
-          axis.text = element_text(size = 12),strip.text = element_text(size = 12),
-          legend.text = element_text(size = 12),legend.title = element_blank()) +
-    scale_x_continuous(name = '95% credible interval') + #limits = c(-0.9,0.9)) + 
-    # scale_shape_manual(values = c(19,21))
-    #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
-    #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
-    scale_fill_manual(values = c('white',NA)) + 
-    scale_color_tableau(name = 'Outcome',labels=c('# projects','CEs/total analyses')) + 
-    guides(shape = FALSE,fill = FALSE) + 
-    ggtitle('Extractive projects') +
-    NULL)
-ggsave(plot = lcv1,filename = 'policypolitics/tables_figures/figures/coefplot_LCV_linear.png',
-       width = 5,height =6, units = 'in',dpi = 500)
-
-
-temp = extract_coefs[grepl('LCV x',specification),]
-temp$specification = 'Posterior estimates'
-
-
-(lcv2 = ggplot(temp,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
-                                                                    y = coef,col = lik,fill = as.factor(sig),group = lik)) + 
-  geom_vline(xintercept = 0,lty = 2,col = 'grey40') + 
-  geom_errorbarh(height = 0.1,position = position_dodgev(0.5)) + 
-  geom_point(position = position_dodgev(0.5),pch = 19,size = 1.5) + 
-  geom_point(position = position_dodgev(0.5),pch = 21,size = 1.5) + 
- # facet_grid(~specification,scales = 'fixed') + 
-    theme_bw() + 
-  theme(legend.position = c(0.3,-0.14),axis.ticks.y = element_blank(),
-        legend.direction = 'horizontal',axis.title.y = element_blank(),
-        
-      text = element_text(family = 'Times'),plot.margin = unit(c(.1,.1,1.1,.1),units = 'cm'),
-     # legend.title.align = -1,legend.justification = -1,
-     legend.background = element_rect(fill = NA),
-        axis.text = element_text(size = 12),strip.text = element_text(size = 12),
-        legend.text = element_text(size = 12),legend.title = element_blank()) +
-  scale_x_continuous(name = '95% credible interval',limits = c(-0.9,0.9)) + 
-  # scale_shape_manual(values = c(19,21))
-  #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
-  #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
-  scale_fill_manual(values = c('white',NA)) + 
-  scale_color_tableau(name = 'Outcome',labels=c('# projects','CEs/total analyses')) + 
-  guides(shape = FALSE,fill = FALSE) + 
-  ggtitle('Extractive projects') +
-  NULL)
-ggsave(plot = lcv2,filename = 'policypolitics/tables_figures/figures/coefplot_LCV_interaction.png',
-       width = 5,height =6, units = 'in',dpi = 300)
+if(varnames[x]=='LCV'){
+ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+}
+  if(varnames[x]!='LCV'){
+    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+  }
+  })
 
 
 temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
@@ -299,8 +229,27 @@ mod_list[[5]]$summary.hyperpar[,c(1,3,5)],
 mod_list[[6]]$summary.hyperpar[,c(1,3,5)])),2))
 
 temp_coef_table = temp_tab
+temp_coef_table
+
+(rem1 = apply(round(mod_list[[1]]$summary.hyperpar[,c(1,3,5)],3),2,formatC,format = 's',drop0trailing = F,digits = 3,flag = 0))
+(rem2 = apply(round(mod_list[[2]]$summary.hyperpar[,c(1,3,5)],3),2,formatC,format = 's',drop0trailing = F,digits = 3,flag = 0))
+rem1 = data.table(rem1)
+rem2 = data.table(rem2)
+rem1$ci = str_replace(str_replace_all(paste0(rem1$mean,' (',rem1$`0.025quant`,', ',rem1$`0.975quant`,')'),'\\s{1,}',' '),'^\\s','')
+rem2$ci = str_replace(str_replace_all(paste0(rem2$mean,' (',rem2$`0.025quant`,', ',rem2$`0.975quant`,')'),'\\s{1,}',' '),'^\\s','')
+
 library(tableHTML)
-write_tableHTML(tableHTML(temp_coef_table), file = 'policypolitics/tables_figures/tables/random_effect_estimates.html')
+remboth = data.table(hyper = rownames(mod_list[[1]]$summary.hyperpar),cbind(rem1[,ci],rem2[,ci]))
+remboth$hyper = rownames(mod_list[[1]]$summary.hyperpar)
+remboth$hyper <- gsub('(u|y)_forest_id','forest latent effect',remboth$hyper)
+remboth$hyper <- gsub('(u|y)_congress_id','congress latent effect',remboth$hyper)
+remboth$hyper <- gsub('(u|y)_state_id','state latent effect',remboth$hyper)
+remboth$hyper <- gsub('(u|y)_region_id','region latent effect',remboth$hyper)
+
+rem_table = tableHTML(remboth,rownames = F,
+          headers = c('hyperparameter','Model 1 (baseline)','Model 2 (LCV x % unemp.)'))
+
+write_tableHTML(rem_table, file = 'policypolitics/tables_figures/tables/tableB3_random_effect_estimates.html')
 
 
 

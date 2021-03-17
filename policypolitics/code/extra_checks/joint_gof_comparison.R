@@ -443,9 +443,40 @@ fwrite(data.table(rbind(joint = getfit(mod.joint),
       file = paste0('policypolitics/tables_figures/tables/variance_gof_',mod,'.csv'))
 
 
+go_dt = data.table(rbind(joint = getfit(mod.joint), 
+      joint.shared = getfit(mod.joint.shared), 
+      shared.only = getfit(mod.shared.only),
+      separate = rbind(getfit(mod.separate.u),
+                       getfit(mod.separate.y))))
+go_dt$mod = rep(c('Joint model','Joint model, separate + shared latent effects',
+                  'Joint model, shared latent effects','Separate models'),each = 2)
+go_dt$outcome = rep(c('# projects','CE ratio'),4)
+
+go_dt = go_dt[order(outcome,mod),]
+htmlTable(round(go_dt[order(outcome,mod),.(dic,waic,cpo)]),n.rgroup = 4,
+          rnames = go_dt$mod,rowlabel = 'specification',rgroup = c('# projects','CE ratio'),
+          file = 'policypolitics/tables_figures/tables/tableB1_jointlikelihood_gof.html')
+
+
+
+dcast(go_dt,mod~outcome,value.var = c('waic','dic','cpo'))
+go_dt
+
+data.table(rbind(joint = getfit(mod.joint), 
+                 joint.shared = getfit(mod.joint.shared), 
+                 shared.only = getfit(mod.shared.only),
+                 separate = rbind(getfit(mod.separate.u),
+                                  getfit(mod.separate.y)))
+           
+           [c(1, 3, 5,7, 2, 4, 6.,8),],keep.rownames = T)
+
+
 extraction_gof = fread('policypolitics/tables_figures/tables/variance_gof_Type_Purpose_Extractive.csv')
 
 sdn = c('dic','waic','cpo')
 extraction_gof[,(sdn):=lapply(.SD,round,2),.SDcols = sdn]
+
 require(htmlTable)
-htmlTable(extraction_gof[order(dic),],file='policypolitics/tables_figures/tables/joint_model_comparison.html')
+
+extraction_gof[order(dic),]
+htmlTable(extraction_gof[order(dic),],file='policypolitics/tables_figures/tables/figureA1_joint_model_comparison.html')

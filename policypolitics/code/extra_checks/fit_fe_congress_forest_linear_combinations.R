@@ -146,12 +146,12 @@ for(i in seq_along(intervars)){
 }
 
 
-fwrite(empty_list,'output/policypolitics/interaction_fe_congress_forest_results.csv')
+#fwrite(empty_list,'output/policypolitics/interaction_fe_congress_forest_results.csv')
 
 
 #empty_list$outcome = name_matcher$outcome[match(empty_list$i,name_matcher$i)]
 
-empty_list = fread('output/policypolitics/interaction_fe_congress_forest_results.csv')
+#empty_list = fread('output/policypolitics/interaction_fe_congress_forest_results.csv')
 
 #qvals = c('0.05','0.25','0.5','0.75','0.95')
 qvals_LCV = c('0.05','0.95')
@@ -170,7 +170,7 @@ ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
 ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
 
 
-((gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=='Project count'&!grepl('alt',form)],
+((gg_lcv_vs_unemp_extraction_count = ggplot(data = ext_dt_lcv[group=='Project count'&!grepl('alt',form)],
        aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
            ymax = `0.975quant`,group = as.factor(x2_quantile),
            col = as.factor(x2_quantile)))  + 
@@ -189,11 +189,11 @@ ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))))
 
-ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_projcount_lcv_vs_unemp.png'))
+ggsave(gg_lcv_vs_unemp_extraction_count,dpi = 300,width = 6,height = 4.5, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_projcount_lcv_vs_unemp.png'))
 
 
-(gg_lcv_vs_unemp_extraction = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses"&!grepl('alt',form),],
+(gg_lcv_vs_unemp_extraction_ratio = ggplot(data = ext_dt_lcv[group=="CE/total NEPA analyses"&!grepl('alt',form),],
                                      aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(sig),
                                          ymax = `0.975quant`,group = as.factor(x2_quantile),
                                          col = as.factor(x2_quantile)))  + 
@@ -212,8 +212,8 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
     theme_bw() + theme(legend.position = c(0.8,0.15),legend.direction = 'vertical',
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
-ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_CEratio_lcv_vs_unemp.png'))
+ggsave(gg_lcv_vs_unemp_extraction_ratio,dpi = 300,width = 6,height = 4.5, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_CEratio_lcv_vs_unemp.png'))
 
 
 (gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=='Project count',],
@@ -235,7 +235,7 @@ ggsave(gg_lcv_vs_unemp_extraction,dpi = 300,width = 6,height = 4.5, units = 'in'
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_projcount_percentD_H_vs_unemp.png'))
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_projcount_percentD_H_vs_unemp.png'))
 
 
 
@@ -257,7 +257,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_CEratio_percentD_H_vs_unemp.png'))
 
 
 (gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',],
@@ -278,7 +278,7 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units =
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_projcount_demRep_vs_unemp_extraction.png'))
 
 
 
@@ -301,6 +301,10 @@ gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=="CE/total NEPA a
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))
 ggsave(gg_demRep_vs_unemp_extraction,dpi = 300,width = 5,height = 4, units = 'in',
-       filename = paste0('output/policypolitics/figures/fe_congress_forest_interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
+       filename = paste0('policypolitics/tables_figures/figures/fe_congress_forest_interaction_extraction_CEratio_demRep_vs_unemp_extraction.png'))
 
+require(gridExtra)
+
+grid.arrange(gg_lcv_vs_unemp_extraction_count,gg_lcv_vs_unemp_extraction_ratio,ncol = 2,
+             top = 'Linear combination estimates using fixed effect model')
 

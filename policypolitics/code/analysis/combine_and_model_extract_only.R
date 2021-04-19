@@ -2,6 +2,7 @@
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 #if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
 require(INLA)
+
 packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
@@ -119,7 +120,7 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
    facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
    ggtitle('LCV annual by year and forest') + theme_map() + scale_fill_viridis_c() + 
    scale_colour_viridis_c()
-ggsave(tt,dpi = 300,filename = 'policypolitics/tables_figures/figures/LCV_by_forest_and_year.png',height = 12,width = 8,units = 'in')
+#ggsave(tt,dpi = 300,filename = 'policypolitics/tables_figures/figures/LCV_by_forest_and_year.png',height = 12,width = 8,units = 'in')
 
 
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,Unemp_Rate ,CALENDAR_YEAR)])
@@ -128,17 +129,22 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
    facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
    ggtitle('Unemp. % by year and forest') + theme_map() + scale_fill_viridis_c() + 
    scale_colour_viridis_c()
-ggsave(tt,dpi = 300,filename = 'policypolitics/tables_figures/figures/Unemp_by_forest_and_year.png',height = 12,width = 8,units = 'in')
+#ggsave(tt,dpi = 300,filename = 'policypolitics/tables_figures/figures/Unemp_by_forest_and_year.png',height = 12,width = 8,units = 'in')
 
 
 base_linear_form = Y ~ -1 + mu.u + mu.y + 
-  u_Unemp_Rate +  u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M + 
+  u_Unemp_Rate +  
+  u_Perc_Extraction_Employ + 
+  u_ln_County_naturalresource_GDP_1M + 
   u_ln_Receipts_Extraction_1M_P4 + 
-  u_Ln_ACRES + u_Wilderness_Perc + 
+  u_Ln_ACRES + 
+  u_Wilderness_Perc + 
+  u_Ln_AVERAGE_YEARLY_VISITS + 
+  u_Count_EorT_Species + 
   u_Burned_Perc_Past5yrs  + 
-  u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species + 
   u_Perc_WUI_Housing +
-  u_demPres + u_demCongress + 
+  u_demPres + 
+  u_demCongress + 
   u_mrp_mean +
   u_LCV_annual + 
   y_Unemp_Rate +  y_Perc_Extraction_Employ + y_ln_County_naturalresource_GDP_1M + 
@@ -160,6 +166,17 @@ base_linear_form = Y ~ -1 + mu.u + mu.y +
     f(y_congress_id,model = 'iid',hyper = pc.prec.used[2]) +
     f(y_region_id,model = 'iid',hyper = pc.prec.used[2]) +
     f(y_state_id,model = 'iid',hyper = pc.prec.used[2]))
+  
+  # form0 = update.formula(base_linear_form, ~ . + 
+  #                          u_forest_id + 
+  #                          u_year_id+
+  #                          #f(u_region_id, model = 'linear') + 
+  #                          #f(u_state_id, model = 'linear') + 
+  #                          y_forest_id+
+  #                          y_year_id)
+  #                          #f(y_region_id,model = 'linear') +
+  #                          #f(y_state_id,model = 'linear'))
+  
   
   form0x = update.formula(form0, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
   form1 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
@@ -208,16 +225,14 @@ colnames(coef_vals) <- as.character(swap_names)
 sumvals = coef_vals[,-c('FOREST_ID','CALENDAR_YEAR',grep(' x ',names(coef_vals),value = T)),with = F]
 
 
-coef_html_table = stargazer(sumvals,summary = T,digits = 3,digits.extra = 0,
-                            summary.stat =c('min','mean','median','max'), 
-                            out = 'policypolitics/tables_figures/tables/table1_variable_summaries.html')
+#coef_html_table = stargazer(sumvals,summary = T,digits = 3,digits.extra = 0, summary.stat =c('min','mean','median','max'), out = 'policypolitics/tables_figures/tables/table1_variable_summaries.html')
 
 corr <- round(cor(coef_vals[,-c('FOREST_ID','CALENDAR_YEAR')],use = 'pairwise.complete.obs'), 2)
 
 #install.packages("ggcorrplot")
 require(ggcorrplot)
-ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = F)
-ggsave(plot = ggc,filename = 'policypolitics/tables_figures/figures/correlation_plot.png',width=  8,height = 8, units = 'in',dpi = 300)
+#ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = F)
+#ggsave(plot = ggc,filename = 'policypolitics/tables_figures/figures/correlation_plot.png',width=  8,height = 8, units = 'in',dpi = 300)
 
 
 input_data = dcast(counts_by_type,get(period_type) + 
@@ -246,6 +261,17 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
     temp_nf = nf[order(FOREST_ID,get(period_type)),]}
   temp_dt = merge(temp_count,temp_nf,by = c('FOREST_ID',period_type))#,all=T,by = c('FOREST_ID',congress))
   temp_dt$ln_Receipts_Extraction_1M_P4[is.na(temp_dt$ln_Receipts_Extraction_1M_P4)] <- 0
+  
+  
+  #  ln_Receipts_Extraction_1M_P4 + 
+  #Ln_ACRES + 
+  #Wilderness_Perc 
+  #Ln_AVERAGE_YEARLY_VISITS +
+  #Count_EorT_Species + 
+  #Perc_WUI_Housing +
+  #   Burned_Perc_Past5yrs + 
+  
+
   n = nrow(temp_dt)
   u = rowSums(temp_dt[,c('CE','EA','EIS'),with = F])
   narep = length(u)
@@ -266,9 +292,9 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$uc_congress_id =  c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
   idat$y_congress_id = c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
   
-  idat$u_year_id = c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))
-  idat$uc_year_id =  c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
-  idat$y_year_id =   c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
+  idat$u_year_id = as.factor(as.character(c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))))
+  idat$uc_year_id =  c(rep(NA,length(y)),as.factor(as.character(idat$u_year_id[1:length(u)])))
+  idat$y_year_id =   c(rep(NA,length(y)),as.factor(as.character(idat$u_year_id[1:length(u)])))
   
   idat$u_state_id = c(temp_dt$STATE,rep(NA,length(y)))
   idat$uc_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
@@ -281,7 +307,8 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   #### binomial EIS / [EA+EIS] model coefficients
 
   idat$y_Unemp_Rate = c(rep(NA,narep),scale(temp_dt$Unemp_Rate))
-
+  idat$y_raw_Unemp_Rate = c(rep(NA,narep),temp_dt$Unemp_Rate)
+  
   temp_dt$ln_Receipts_Extraction_1M_P4[is.na(temp_dt$ln_Receipts_Extraction_1M_P4)] <- 0
   idat$y_ln_Receipts_Extraction_1M_P4 = c(rep(NA,narep),scale(temp_dt$ln_Receipts_Extraction_1M_P4))
   idat$y_ln_Receipts_Recreation_1M_P4 = c(rep(NA,narep),scale(temp_dt$ln_Receipts_Recreation_1M_P4))
@@ -295,6 +322,7 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$y_percentD_H = c(rep(NA,narep),scale(temp_dt$percentD_H)) 
   
   idat$y_LCV_annual= c(rep(NA,narep),scale(temp_dt$LCV_annual))
+  idat$y_raw_LCV_annual= c(rep(NA,narep),temp_dt$LCV_annual)
   idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
   
   idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
@@ -306,7 +334,9 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
   idat$y_Total_Receipts_4yr_Change_Perc = c(rep(NA,narep),scale(temp_dt$Total_Receipts_4yr_Change_Perc))
   idat$u_Unemp_Rate = c(scale(temp_dt$Unemp_Rate),rep(NA,narep))
-
+  idat$u_Unemp_Rate_Demeaned = c(scale(temp_dt$Unemp_Rate),rep(NA,narep))
+  
+  idat$u_raw_Unemp_Rate = c(temp_dt$Unemp_Rate,rep(NA,narep))
   idat$u_ln_Receipts_Extraction_1M_P4 = c(scale(temp_dt$ln_Receipts_Extraction_1M_P4),rep(NA,narep))
   idat$u_ln_Receipts_Recreation_1M_P4 = c(scale(temp_dt$ln_Receipts_Recreation_1M_P4),rep(NA,narep))
   idat$u_Perc_Extraction_Employ = c(scale(temp_dt$Perc_Extraction_Employ),rep(NA,narep))
@@ -320,6 +350,7 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$u_percentD_H = c(scale(temp_dt$percentD_H),rep(NA,narep)) 
  
   idat$u_LCV_annual= c(scale(temp_dt$LCV_annual),rep(NA,narep)) 
+  idat$u_raw_LCV_annual= c(temp_dt$LCV_annual,rep(NA,narep)) 
   idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
   idat$u_democrat = c(temp_dt$democrat,rep(NA,narep))
   idat$y_democrat = c(rep(NA,narep),temp_dt$democrat)
@@ -350,15 +381,16 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
 subtypes = grep('Extract',subtypes,value = T)
 
 
-
 require(MASS)
 require(aod)
-nb_mod = glm.nb(u~ -1 + mu.u + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
-                  u_ln_Receipts_Extraction_1M_P4 + u_Ln_ACRES + u_Wilderness_Perc +
-                  u_Burned_Perc_Past5yrs + u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species +
-                  u_Perc_WUI_Housing + u_demPres + u_demCongress + u_mrp_mean +
-                  u_LCV_annual,data = lapply(idat,function(x) x[1:length(idat$u)]))
-
+nb_mod = glm.nb(u~ -1 + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
+                  u_ln_Receipts_Extraction_1M_P4 + #u_Ln_ACRES + u_Wilderness_Perc +
+                  u_Burned_Perc_Past5yrs + 
+                  #u_Ln_AVERAGE_YEARLY_VISITS + 
+                  #u_Count_EorT_Species +
+                  #u_Perc_WUI_Housing + u_demPres + u_demCongress + 
+                  u_mrp_mean +
+                  u_LCV_annual + as.factor(u_forest_id) + u_year_id ,data = lapply(idat,function(x) x[1:length(idat$u)]))
 
 u.sdres <- sd(residuals(nb_mod))
 temp_dat = as.data.frame(lapply(idat,function(x) x[length(idat$u)+{1:length(idat$y)}]))
@@ -369,17 +401,18 @@ temp_dat$y = idat$y[keep_index]
 temp_dat$u = idat$u[keep_index]
 
 
-bin_mod = betabin(cbind(y,u-y) ~ 1 + 
+bin_mod = betabin(cbind(y,u-y) ~ -1 + 
                     y_Unemp_Rate + 
                     y_Perc_Extraction_Employ + 
                     y_ln_County_naturalresource_GDP_1M +
                     y_ln_Receipts_Extraction_1M_P4 + 
-                    y_Ln_ACRES + y_Wilderness_Perc +
-                    y_Burned_Perc_Past5yrs + y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
-                    y_Perc_WUI_Housing + 
-                    y_demPres + y_demCongress + 
+                   # y_Ln_ACRES + y_Wilderness_Perc +
+                    y_Burned_Perc_Past5yrs + 
+                    #y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
+                    #y_Perc_WUI_Housing + 
+                    #y_demPres + y_demCongress + 
                     y_mrp_mean +
-                    y_LCV_annual,~1,data =  temp_dat,control = list(maxit = 10e3))
+                    y_LCV_annual + as.factor(y_forest_id) + y_year_id,~1,data =  temp_dat,control = list(maxit = 10e3))
 
 y.sdres <- sd(residuals(bin_mod))
 pc.prec.used = list(prec= list(prior = "pc.prec", param = c(u.sdres,0.01)),
@@ -397,8 +430,8 @@ bprior <- list(prior = 'gaussian', param = c(0,1))
 cres <- list(return.marginals.predictor = FALSE, 
                return.marginals.random = FALSE)
   
-  idat$u_forest_id <- forest_index$index[match(idat$u_forest_id,forest_index$forest_id)]
-  idat$y_forest_id <- forest_index$index[match(idat$y_forest_id,forest_index$forest_id)] + nrow(forest_index)
+  idat$u_forest_id <- as.factor(forest_index$index[match(idat$u_forest_id,forest_index$forest_id)])
+  idat$y_forest_id <- as.factor(forest_index$index[match(idat$y_forest_id,forest_index$forest_id)] + nrow(forest_index))
   idat$uc_forest_id <-  idat$u_forest_id
   
   idat$u_region_id <- region_index$index[match(formatC(idat$u_region_id,width = 2,flag = 0),region_index$region_id)]
@@ -421,8 +454,9 @@ cres <- list(return.marginals.predictor = FALSE,
                                                                   family = c('nbinomial', 'betabinomial'),Ntrials = idat$u,
                                                                   control.fixed = list(expand.factor.strategy = "inla",prec = bprior),
                                                                   control.family = famcontrol,
+                                                                
                                                                   control.results = cres,
-                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE),
+                                                                  data=idat, control.compute = list(waic=TRUE,dic=TRUE,config = F),
                                                                   control.predictor=list(compute=TRUE),verbose=F)},cl = 1)
   names(mod_list) <- list_of_forms
 

@@ -202,8 +202,8 @@ ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 
 ext_dt_lcv_linear = ext_dt[form == 'form0',]
 ext_dt_lcv_interact = ext_dt[form == 'form0x',]
-ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS,]
-ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem,]
+ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS & form == 'form1x',]
+ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem & form == 'form2x',]
 require(htmlTable)
 
 htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean,3),`0.025quant` = round(`0.025quant`,3),`0.975quant` = round(`0.975quant`,3))],
@@ -223,7 +223,7 @@ htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean
   #geom_point(position = position_dodge(0.01),pch = 21) + 
   scale_fill_colorblind()+
   scale_x_continuous(name = paste('% unemployment quantile')) +
-  scale_y_continuous(name = '95% credible interval')+
+  scale_y_continuous(name = '95% credible interval',limits = c(0.65,1.3))+
   scale_color_colorblind(name = 'annual LCV score',labels=qval_labels_lcv) +
   #scale_color_viridis_d(name = 'annual LCV score',option = 'D',labels=qval_labels_lcv) + 
   guides(fill = FALSE) + 
@@ -248,7 +248,7 @@ ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 500,width = 6,height = 4.
     geom_path(aes(col = as.factor(x2_quantile)))+
     scale_fill_colorblind()+
     scale_x_continuous(name = paste('% unemployment quantile')) +
-    scale_y_continuous(name = '95% credible interval')+
+    scale_y_continuous(name = '95% credible interval',limits = c(-0.9,0.9))+
     #scale_color_viridis_d(name = 'annual LCV score',option = 'D',labels=qval_labels_lcv) + 
     scale_color_colorblind(name = 'annual LCV score',labels=qval_labels_lcv) +
     guides(fill = FALSE) + 

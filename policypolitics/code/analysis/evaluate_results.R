@@ -13,7 +13,7 @@
   td = tempdir()
    albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
  
-  admin_districts <- readRDS('prepped/admin_units_clean.RDS')
+  admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
   locs = 'output/policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name =c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
 

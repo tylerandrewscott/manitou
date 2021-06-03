@@ -211,8 +211,8 @@ htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean
 
 
 ((gg_lcv_vs_unemp_extraction_interact_count = ggplot(data = ext_dt_lcv_interact[group=='Project count'&!grepl('alt',form)][order(x1_quantile)],
-       aes(x = x1_quantile,y = exp(mean),ymin = exp(`0.025quant`),fill = as.factor(x2_quantile),
-           ymax = exp(`0.975quant`),group = as.factor(x2_quantile),
+       aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(x2_quantile),
+           ymax = `0.975quant`,group = as.factor(x2_quantile),
            col = as.factor(x2_quantile)))  + 
  # facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
   #geom_path(position = position_dodge(0.05)) +
@@ -223,7 +223,7 @@ htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean
   #geom_point(position = position_dodge(0.01),pch = 21) + 
   scale_fill_colorblind()+
   scale_x_continuous(name = paste('% unemployment quantile')) +
-  scale_y_continuous(name = '95% credible interval',limits = c(0.65,1.3))+
+  #scale_y_continuous(name = '95% credible interval',limits = c(0.65,1.3))+
   scale_color_colorblind(name = 'annual LCV score',labels=qval_labels_lcv) +
   #scale_color_viridis_d(name = 'annual LCV score',option = 'D',labels=qval_labels_lcv) + 
   guides(fill = FALSE) + 

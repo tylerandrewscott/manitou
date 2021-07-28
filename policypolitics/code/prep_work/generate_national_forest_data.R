@@ -8,7 +8,7 @@ cores = detectCores()-2
 first_year = 2000;last_year = 2020
 # projection to use for all spatial data
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
+admin_districts <- readRDS('policypolitics/raw_curated_inputs/admin_units_clean.RDS')
 admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
 
 # create a temporary folder that stores downloaded shapefile, extract contents and load
@@ -22,33 +22,16 @@ tdt = expand.grid(sort(unique(as.character(admin_districts$FOREST_ID))),first_ye
 tdt = data.table(tdt)
 names(tdt)<- c('FOREST_ID',"CALENDAR_YEAR")
 temp_dt = tdt
-#create forest/year/congress table
+
+
 temp_dt = data.table(left_join(temp_dt,congress_ids))
 
 
-### this loads other land units that aren't primary administrative units
-# lmu_url = "https://data.fs.usda.gov/geodata/edw/edw_resources/shp/S_USA.temp_dtSLandUnit.zip"
-# tf = tempfile(tmpdir=td, fileext=".zip")
-# download.file(lmu_url, tf)
-# fname = unzip(tf, list=TRUE)
-# unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
-# fpath = file.path(td, grep('shp$',fname$Name,value=T))
-# lmus <- st_read(fpath)
-# lmus <- st_transform(lmus,crs = st_crs(albersNA))
-# lmus <- st_make_valid(lmus)
-
-####  forest x county overlap values
-
-
-#fs_county_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/9248aea543dd4ef0833680d136fe8496_1.geojson?outSR=%7B%22latestWkid%22:3857,%22wkid%22:102100%7D'
-
 counties = tigris::counties(class = 'sf',year = '2017')
-#fs_county = st_read(fs_county_url)
 counties = st_make_valid(counties)
 counties <- st_transform(counties,crs = st_crs(albersNA))
 states = tigris::states(class = 'sf')
 counties$CFIPS = formatC(counties$GEOID,width = 5,flag = 0)
-#fs_county$CFIPS = paste0(formatC(states$STATEFP[match(fs_county$STATENAME,states$NAME)],width = 2,flag = 0),formatC(fs_county$CENSUSCODE,width = 3,flag = 0))
 fs_county_intersects = st_intersection(admin_districts,counties)
 
 fs_county_intersects$prop_in_county = st_area(fs_county_intersects) / st_area(admin_districts)[match(fs_county_intersects$FOREST_ID,admin_districts$FOREST_ID)]
@@ -60,13 +43,10 @@ fs_county_intersects$FOREST_ID <- formatC(fs_county_intersects$FOREST_ID,width =
 county_over = as.data.table(fs_county_intersects)
 ### reads in pre-made file with natural resource gdp by county
 
-
-county_nr = fread('input/cpb_data/naturalresource_gdp_by_county_2001-2018.csv')
+county_nr = fread('policypolitics/raw_curated_inputs//naturalresource_gdp_by_county_2001-2018.csv')
 county_nr$CFIPS = formatC(county_nr$CFIPS,width = 5,flag = 0)
-setnames(county_nr,'Year','YEAR')
 county_nr[,STATE:=NULL]
-county_nr$NaturalResources1M <- county_nr$County_naturalresource_GDP /1e6
-
+county_nr$NaturalResources1M <- county_nr$NaturalResources1k/1e3
 
 ####### county business pattern overlay
 ### reads in county business pattern local area employment data
@@ -91,7 +71,8 @@ setnames(county_lau,c('January','October'),c('LAU_January','LAU_October'))
 county_econ = data.table(full_join(county_lau,county_nr[,.(CFIPS,YEAR,NaturalResources1M)]))
 
 
-cbp_list = lapply(list.files('input/cpb_data/','with_ann',full.names = T),function(x) {
+
+cbp_list = lapply(list.files('policypolitics/raw_curated_inputs/','with_ann',full.names = T),function(x) {
   tt=fread(x,skip = 1)
   names(tt) = gsub('[0-9]{4}\\s','',names(tt));names(tt) = gsub("Paid employees for pay period including March 12 (number)","Number of employees",names(tt),fixed=T)
   tt})
@@ -134,17 +115,19 @@ setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
 temp_dt = left_join(temp_dt,forest_weighted_econ)
 temp_dt = data.table(temp_dt)
 
-countyVS = readRDS('input/politics/countyVoteShare_3-2020_imputed.rds')
+countyVS = readRDS('policypolitics/raw_curated_inputs/countyVoteShare_3-2020_imputed.rds')
 setkey(countyVS,'CFIPS')
 countyVS = countyVS[county_over,]
-forest_weighted_demVS = countyVS[,lapply(.SD,weighted.mean,w=prop_in_county), by=.(FOREST_ID,FISCAL_YEAR),.SDcols = c("percentD_H")]
-setnames(forest_weighted_demVS,'FISCAL_YEAR','CALENDAR_YEAR')
+setnames(countyVS,'FISCAL_YEAR','CALENDAR_YEAR')
+forest_weighted_demVS = countyVS[,weighted.mean(percentD_H,prop_in_county),by=.(FOREST_ID,congress,CALENDAR_YEAR)]
+setnames(forest_weighted_demVS,'V1','percentD_H')
 
+setkey(forest_weighted_demVS,FOREST_ID,CALENDAR_YEAR)
+setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
 temp_dt=left_join(temp_dt,forest_weighted_demVS)
 
 
 
-# 
 # library(readxl)
 # receipts = data.table(read_excel('input/usfs_internal_data/USFSGrossReceipts_cleaned.xlsx',skip = 3))
 # receipts$`National Forest Code` = formatC(receipts$`National Forest Code`,width = 4,flag = 0)
@@ -159,7 +142,7 @@ temp_dt=left_join(temp_dt,forest_weighted_demVS)
 
 ###
 ### load timber sales data from google sheet
-timber_sales=fread('https://docs.google.com/spreadsheets/d/e/2PACX-1vSDJ_MS5MyRV5MNAOZtNETa3ga0QRRjlUXZL5Fpb3cleugwDhbcJ8JaT7EKxdRXXg/pub?gid=68111876&single=true&output=csv')
+timber_sales=fread('policypolitics/raw_curated_inputs/USFSTimberCutSold.csv')#https://docs.google.com/spreadsheets/d/e/2PACX-1vSDJ_MS5MyRV5MNAOZtNETa3ga0QRRjlUXZL5Fpb3cleugwDhbcJ8JaT7EKxdRXXg/pub?gid=68111876&single=true&output=csv')
 timber_sales$FOREST_ID = formatC(timber_sales$`Forest Number`,width=4,flag = 0)
 
 timber_sales$FOREST_ID = gsub('^0108','0111',timber_sales$FOREST_ID)
@@ -180,21 +163,9 @@ temp_dt =  left_join(temp_dt,timber_cut)
 temp_dt = data.table(temp_dt)
 
 
-#### reads in county percentD_H vote ####
-county_voting = readRDS('input/politics/countyVoteShare_3-2020_imputed.rds')
-setnames(county_voting,'FISCAL_YEAR','CALENDAR_YEAR')
-county_forest_voting = data.table(left_join(county_voting,county_over))
-# NAs are cases where county didn't actually overlap
-county_forest_voting = county_forest_voting[!is.na(FOREST_ID),]
-forest_voting_weighted = county_forest_voting[,weighted.mean(percentD_H,prop_in_county),by=.(FOREST_ID,congress,CALENDAR_YEAR)]
-setnames(forest_voting_weighted,'V1','percentD_H')
-
-setkey(forest_voting_weighted,FOREST_ID,CALENDAR_YEAR)
-setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
-temp_dt = data.table(left_join(temp_dt,forest_voting_weighted))
 
 library(readxl)
-wui = read_excel('input/wui/COUNTY_WUI_change_1990_2010_Stats_Report.xlsx',sheet = 'HOUSING',skip = 1)
+wui = read_excel('policypolitics/raw_curated_inputs/COUNTY_WUI_change_1990_2010_Stats_Report.xlsx',sheet = 'HOUSING',skip = 1)
 wui$WUI_Housing = wui$`2000...11` 
 wui$NON_WUI_Housing = wui$`2000...14`
 wui$FIPS = as.integer(wui$FIPS)
@@ -204,7 +175,7 @@ setnames(wui,'FIPS','CFIPS')
 setkey(county_over,CFIPS)
 setkey(wui,CFIPS)
 
-akb = fread('input/wui/DEC_00_SF1_H001_with_ann.csv',skip = 1,stringsAsFactors = F)
+akb = fread('policypolitics/raw_curated_inputs/DEC_00_SF1_H001_with_ann.csv',skip = 1,stringsAsFactors = F)
 akb$CFIPS = formatC(akb$Id2,width = 5,flag = 0)
 akb$WUI_Housing = akb$Total
 
@@ -220,12 +191,12 @@ wui_housing_units = county_wui_over[,lapply(.SD,weighted.mean,w=prop_in_county,n
 temp_dt = data.table(left_join(temp_dt,wui_housing_units))
 
 ###### add house representative variables
-house = readRDS('input/politics/houseAtts_5-2019.RDS')
+house = readRDS('policypolitics/raw_curated_inputs/houseAtts_5-2019.RDS')
 house = data.table(house)
 house= house[!duplicated(paste0(year,stateDistrict)),]
 setnames(house,'year','CALENDAR_YEAR')
 house$Congressional_District_ID <- formatC(house$Congressional_District_ID,width=4,flag = 0)
-cd_ideology = readRDS('input/politics_data/final/cd_ideology_8-2020.RDS')
+cd_ideology = readRDS('policypolitics/raw_curated_inputs/cd_ideology_7-2021_fixed2013year.RDS')
 
 cd_ideology$cd_fips[grepl('00$',cd_ideology$cd_fips)] <- cd_ideology$cd_fips[grepl('00$',cd_ideology$cd_fips)] + 1
 cd_ideology$cd_fips = formatC(cd_ideology$cd_fips,width = 4,flag = 0)
@@ -236,7 +207,7 @@ house$mrp_mean<-cd_ideology$mrp_mean[match(
   paste(cd_ideology$year,formatC(cd_ideology$cd_fips,width = 4,flag = 0)))]
 setkey(house,CALENDAR_YEAR,Congressional_District_ID)
 
-house_overs = fread('input/gis_overlap_props/nationalforest_congressdistrict_overlap_props.csv')
+house_overs = fread('policypolitics/prepped_inputs/nationalforest_congressdistrict_overlap_props.csv')
 house_overs$FOREST_ID = formatC(house_overs$FOREST_ID,width=4,flag = 0)
 house_overs$Congressional_District_ID <- formatC(gsub('00$','01',house_overs$Congressional_District_ID),width=4,flag=0)
 setnames(house_overs,'Year','CALENDAR_YEAR')
@@ -259,7 +230,7 @@ temp_dt = temp_dt[CALENDAR_YEAR>=first_year&CALENDAR_YEAR<=last_year]
 temp_dt = temp_dt[!is.na(congress),]
 
 
-use = readRDS('policypolitics/prepped/forestUseAverage_2005-2014.RDS')
+use = readRDS('policypolitics/raw_curated_inputs/forestUseAverage_2005-2014.RDS')
 
 use$FOREST_ID = paste0(use$REGION,use$FORESTNUMB)
 
@@ -313,7 +284,8 @@ forest_wilderness_intersects$area = st_area(forest_wilderness_intersects)
 
 
 forest_wilderness_area = data.table(forest_wilderness_intersects)
-wilderness_area_by_year = rbindlist(lapply(first_year:last_year,function(y) forest_wilderness_area[YearDesign<y,sum(area),by=.(FOREST_ID)][,CALENDAR_YEAR:=y]))
+
+wilderness_area_by_year = rbindlist(lapply(first_year:last_year,function(y) forest_wilderness_area[Designated<y,sum(area),by=.(FOREST_ID)][,CALENDAR_YEAR:=y]))
 wilderness_area_by_year$Wilderness_Prop = wilderness_area_by_year$V1/st_area(admin_districts)[match(wilderness_area_by_year$FOREST_ID,admin_districts$FOREST_ID)]
 setnames(wilderness_area_by_year,'V1','Wilderness_Area')
 wilderness_area_by_year$Wilderness_Prop <- as.numeric(wilderness_area_by_year$Wilderness_Prop)
@@ -365,7 +337,7 @@ setkey(temp_dt,'FOREST_ID','CALENDAR_YEAR')
 temp_dt = temp_dt[limit_area_by_year,]
 
 
-esa = fread('input/usfs_internal_data/nfs_tep_group_species_sort_11jul08.csv')
+esa = fread('policypolitics/raw_curated_inputs/nfs_tep_group_species_sort_11jul08.csv')
 esa$nf = esa$`Forest and or Grassland with Species`
 esa$nf <- gsub('NFS','National Forests',esa$nf)
 esa$nf <- gsub('NF','National Forest',esa$nf)
@@ -508,16 +480,7 @@ temp_dt = merge(temp_dt,esa_counts,all.x = T)
 # temp_dt$Allotments_Prop[temp_dt$Allotments_Prop>1]<- 1
 
 
-eco_sections_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/14dc96d4cf4a445f8bb65d4cd4803476_2.geojson?outSR=%7B%22latestWkid%22:3857,%22wkid%22:102100%7D'
-eco_sections <- st_read(eco_sections_url)
-eco_sections <- st_transform(eco_sections,crs = st_crs(albersNA))
-eco_sections  <- st_make_valid(eco_sections)
-over_eco_sections = st_intersects(admin_districts,eco_sections)
-
-temp_dt$Num_Eco_Sections = sapply(over_eco_sections,length)[temp_dt$index_in_forestshp]
-# 
-
-gross_receipts <- read_excel('input/USFSGrossReceipts.xlsx',skip = 3)
+gross_receipts <- read_excel('policypolitics/raw_curated_inputs/USFSGrossReceipts.xlsx',skip = 3)
 gross_receipts <- data.table(gross_receipts )
 gross_receipts = gross_receipts[,c('Year','National Forest Code',grep('Inflation Adjusted (Class|Total Gross)',names(gross_receipts),value = T)),with = F]
 setnames(gross_receipts,'National Forest Code','FOREST_ID')
@@ -570,7 +533,7 @@ temp_dt$FOREST_ID <- formatC(temp_dt$FOREST_ID,width = 4,flag = 0)
 setnames(gross_receipts,'Year','CALENDAR_YEAR')
 temp_dt <- merge(temp_dt,gross_receipts,all.x = T)
 
-timber = data.table(read_excel('input/USFSTimberCutSold.xlsx',skip = 3,sheet = 'forests'))
+timber = data.table(fread('policypolitics/raw_curated_inputs/USFSTimberCutSold.csv'))
 setnames(timber,c('Year','Forest Number','Cut Volume (MBF)'),c('CALENDAR_YEAR','FOREST_ID','Cut_Volume_MBF'))
 timber$FOREST_ID <- formatC(timber$FOREST_ID,width = 4,flag = 0)
 timber = timber[,.(FOREST_ID,CALENDAR_YEAR,Cut_Volume_MBF)]
@@ -582,8 +545,6 @@ temp_dt$Receipts_TimberMineralsGrazing_P4 <- temp_dt$Receipts_Minerals_P4 + temp
 temp_dt[order(FOREST_ID,CALENDAR_YEAR),Total_Receipts_4yr_Change_Perc:= (lag(Total_Gross_Receipts,1) - lag(Total_Gross_Receipts,5))/lag(Total_Gross_Receipts,5),by=.(FOREST_ID)]
 temp_dt[order(FOREST_ID,CALENDAR_YEAR),Timber_Cut_MBF_4yr_Change_Perc:= (lag(Cut_Volume_MBF,1) - lag(Cut_Volume_MBF,5))/lag(Cut_Volume_MBF,5),by=.(FOREST_ID)]
 
-
-temp_dt$Num_Eco_Sections[temp_dt$Num_Eco_Sections==0] <- 1
 
 
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress),]
@@ -611,7 +572,7 @@ temp_dt$ChairLCV = (temp_dt$nrChairLCV + temp_dt$agChairLCV)/2
 temp_dt$Ln_ACRES = log(temp_dt$ACRES)
 temp_dt$Ln_AVERAGE_YEARLY_VISITS = log(temp_dt$Average_Yearly_Visits)
 
-library(zoo)
+
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress),]
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress), zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress), na.locf(.SD, na.rm = FALSE,fromLast=TRUE),by = .(FOREST_ID)]
@@ -627,5 +588,5 @@ temp_dt$ln_Receipts_Extraction_1M_P4 <- log(temp_dt$Receipts_TimberMineralsGrazi
 temp_dt$ln_Receipts_Recreation_1M_P4 <- log(temp_dt$Receipts_Recreation_P4/1e6+1)
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR),Unemp_Rate:=lag(LAU_October),by = .(FOREST_ID)]
 
-fwrite(temp_dt,'policypolitics/prepped/national_forest_covariates.csv')
+fwrite(temp_dt,'policypolitics/prepped_inputs/national_forest_covariates.csv')
 

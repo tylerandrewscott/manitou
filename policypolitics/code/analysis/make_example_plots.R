@@ -1,7 +1,7 @@
 
 
 
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','ggnewscale')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','ggnewscale','ggrepel')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -9,7 +9,7 @@ lapply(packages,require,character.only = T)
 td = tempdir()
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 
-admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
+admin_districts <- readRDS('policypolitics/prepped_inputs/admin_units_clean.RDS')
 
 states = tigris::states(class = 'sf')
 states <- st_transform(states,crs = st_crs(albersNA))
@@ -35,7 +35,7 @@ oregon_house = congress2015[congress2015$STATEFP=='41',]
 oregon_house$ID = paste0('OR-',oregon_house$CD114FP)
 oregon_house$Dem_Rep = c('D','R','D','D','D')
 
-nf = fread('policypolitics/prepped/national_forest_covariates.csv')
+nf = fread('policypolitics/prepped_inputs/national_forest_covariates.csv')
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
@@ -117,25 +117,16 @@ NULL
     )
 
 
+ggsave(plot = gg_rep,filename = 'policypolitics/tables_figures/figures/figure1_oregon_lcv_annual.tiff',width=7.5,height=6,units ='in',dpi = 500)
 
-ggsave(plot = gg_rep,filename = 'policypolitics/tables_figures/figures/figure1_oregon_lcv_annual.png',width=7.5,height=6,units ='in',dpi = 500)
-
-
+start_year = 2005
+end_year = 2018
 period_type = 'CALENDAR_YEAR'
-fs = readRDS('prepped/fs_PALS_cleaned_project_datatable.RDS')
+#### this determines which projects to include ######
+keep_decisions = c('EIS','EA','CE')
+
+fs = readRDS('policypolitics/raw_curated_inputs/fs_PALS_cleaned_project_datatable.RDS')
 fs = fs[FOREST_ID %in% admin_districts$FOREST_ID,]
-
-#install.packages("ggcorrplot")
-require(ggcorrplot)
-if(keep_activities&keep_purpose){
-  fs$Type_Purpose_Extractive = (fs$Type_Purpose_Extractive==1|fs$Type_Activity_Extractive  ==1)+0
-  fs$Type_Purpose_Recreation_Wildlife = (fs$Type_Purpose_Recreation_Wildlife==1|fs$Type_Activity_Recreation_Wildlife  ==1)+0
-}
-
-if(keep_activities&!keep_purpose){
-  fs$Type_Purpose_Extractive = fs$Type_Activity_Extractive
-  fs$Type_Purpose_Recreation_Wildlife = fs$Type_Activity_Recreation_Wildlife
-}
 
 subvars = c('Type_Purpose_All','Type_Purpose_Extractive','Type_Purpose_Recreation_Wildlife')
 
@@ -185,7 +176,7 @@ g3 = ggplot(data = input_data,aes(x = Tot_Proj,y = CE)) + geom_jitter(pch = 21) 
   scale_y_continuous(name = '# CEs issued') + 
   ggtitle('CEs vs. total extractive projects')
 library(gridExtra)
-ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'policypolitics/tables_figures/figures/figure2_DV_plot.png',width = 8,units = 'in',height= 8,dpi = 500)
+ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'policypolitics/tables_figures/figures/figure2_DV_plot.tiff',width = 8,units = 'in',height= 8,dpi=350)
 
 
 

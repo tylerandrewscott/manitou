@@ -1,20 +1,26 @@
   
-  if(!require(data.table)){install.packages('data.table');require(data.table)}
-  if(!require(tidyverse)){install.packages('tidyverse');require(tidyverse)}
-  if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE);require(INLA)}
-  if(!require(forcats)){install.packages('forcats');library(forcats)}
-  if(!require(ggstance)){install.packages('ggstance');library(ggstance)}
-  if(!require(ggthemes)){install.packages('ggthemes');library(ggthemes)}
-  
-  if(!require(scales)){install.packages('scales');library(scales)}
-  if(!require(R2HTML)){install.packages('R2HTML');library(R2HTML)}
-  if(!require(sf)){install.packages('sf');library(sf)}
-  
+
+if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
+
+packages = c('data.table','stringr','forcats','tidyverse','ggthemes','ggstance','scales','R2HTML','sf')
+not_installed = packages[!packages %in% installed.packages()[,'Package']]
+if(length(not_installed)>0){lapply(not_installed,install.packages)}
+lapply(packages,require,character.only = T)
+
   td = tempdir()
    albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
  
-  admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
-  locs = 'output/policypolitics/model_objects/'
+  admin_districts <- readRDS('policypolitics/prepped_inputs//admin_units_clean.RDS')
+  
+  
+  forest_index = data.table(forest_id = rep(sort(unique(nf$FOREST_ID)),2),index = seq(length(unique(nf$FOREST_ID))*2))
+  region_index = data.table(region_id = sort(unique(nf$USFS_REGION)),index = seq_along(unique(nf$USFS_REGION)))
+  state_index = data.table(state_id = sort(unique(nf$STATE)),index = seq_along(unique(nf$STATE)))
+  congress_index = data.table(congress_id = rep(sort(unique(nf$congress)),2),index = seq(length(unique(nf$congress))*2))
+  
+  
+  
+  locs = 'policypolitics/model_objects/'
   spec_names = data.table(specification = 1:6,name =c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
 
   
@@ -30,7 +36,7 @@
  grid.arrange(congressA,congressB,ncol = 2)
  
  (waic_table = as.data.table(lapply(mod_list,function(y) y$waic$waic)))
-  colnames(waic_table) <- names(model_list_of_lists)
+  colnames(waic_table) <- names(mod_list)
   
  fwrite(waic_table,'policypolitics/tables_figures/tables/waic_table.csv')
 
@@ -156,22 +162,21 @@ lapply(seq_along(variations),function(x) {
   #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
   scale_fill_manual(values = c('white',NA)) + 
   scale_color_tableau(name = 'Outcome',labels=c('# projects','CEs/total analyses')) + 
-  guides(shape = FALSE,fill = FALSE) + 
+  guides(shape = 'none',fill = 'none') + 
   ggtitle('Extractive projects') +
   NULL
 if(varnames[x]=='LCV'){
-ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
 }
   if(varnames[x]!='LCV'){
-    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
   }
   })
 
 
 temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
              mod_list[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
-
-nms = gsub('\\sNational Forest($|s$)|National Forests in\\s','',admin_districts$FORESTNAME[match(temp$ID,admin_districts$FOREST_ID)])
+nms = gsub('\\sNational Forest($|s$)|National Forests in\\s','',forest_index$forest_id[match(temp$ID,forest_index$index)])
 nms = gsub('National Recreation Area','NRA',nms)
 nms = gsub('National Scenic Area','NSA',nms)
 nms = gsub('Manaement Unit','MU',nms)
@@ -181,43 +186,25 @@ temp$nm <- fct_rev(temp$nm)
 forest_re =  ggplot(data = temp) + 
   geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = nms,col = group,group = group),position = position_dodge(width = 1)) + 
   geom_point(aes(y = mean,x = nms,col = group,group = group),position = position_dodge(width = 1)) + theme_bw() + 
-  scale_colour_colorblind(name = 'outcome') + coord_flip() + 
+  scale_colour_colorblind(name = 'outcome') + coord_flip() + facet_wrap(~group)+
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Extractive projects') 
-ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_extraction.png',width = 8,height = 12,units = 'in',dpi = 300)
+ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_extraction.tiff',width = 8,height = 12,units = 'in',dpi = 350)
 
-temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
-             mod_list[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
-
-nms = gsub('\\sNational Forest($|s$)|National Forests in\\s','',admin_districts$FORESTNAME[match(temp$ID,admin_districts$FOREST_ID)])
-nms = gsub('National Recreation Area','NRA',nms)
-nms = gsub('National Scenic Area','NSA',nms)
-nms = gsub('Manaement Unit','MU',nms)
-temp$nm = nms
-temp$nm <- fct_rev(temp$nm)
-
-forest_re =  ggplot(data = temp) + 
-  geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = nms,col = group,group = group),position = position_dodge(width = 1)) + 
-  geom_point(aes(y = mean,x = nms,col = group,group = group),position = position_dodge(width = 1)) + theme_bw() + 
-  scale_colour_colorblind(name = 'outcome') + coord_flip() + 
-  theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',
-        axis.ticks = element_blank(),axis.text.y = element_text(angle = 45)) + 
-  scale_y_continuous(name = '95% credible interval') + 
-  ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Wildlife/recreation projects') 
-ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_rec_wildlife.png',width = 9,height = 10,units = 'in',dpi = 300)
 
 temp = rbind(mod_list[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
              mod_list[[2]]$summary.random$y_congress_id %>% mutate(group = 'CE/total analyses'))
 
-congress_re =  ggplot(data = temp) + 
-  geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = as.factor(ID),col = group,group = group),position = position_dodge(width = 1)) + 
-  geom_point(aes(y = mean,x = as.factor(ID),col = group,group = group),position = position_dodge(width = 1)) + theme_bw() + 
-  scale_colour_colorblind(name = 'outcome') + coord_flip() + 
+temp$cid = congress_index$congress_id[match(temp$ID,congress_index$index)]
+(congress_re =  ggplot(data = temp) + 
+  geom_errorbar(aes(ymin = `0.025quant`,ymax =`0.975quant`,x = as.factor(cid),col = group,group = group),position = position_dodge(width = 1)) + 
+  geom_point(aes(y = mean,x = as.factor(cid),col = group,group = group),position = position_dodge(width = 1)) + theme_bw() + 
+  scale_colour_colorblind(name = 'outcome') + coord_flip() + facet_wrap(~group) + 
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
-  ggtitle('Modeled intercepts by Congress',subtitle = 'Extractive projects') 
-ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_congress_extraction.png',width = 4,height = 6,units = 'in',dpi = 300)
+  ggtitle('Modeled intercepts by Congress',subtitle = 'Extractive projects') )
+ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_congress_extraction.tiff',width = 4,height = 6,units = 'in',dpi = 350)
 
 
 temp_tab = (round(do.call(rbind,list(

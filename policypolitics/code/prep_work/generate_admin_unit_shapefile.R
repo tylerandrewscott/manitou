@@ -1,8 +1,5 @@
 
-#install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
-#if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
-require(INLA)
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','tigris')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -31,5 +28,5 @@ drop_sites = c("Savannah River Site" ,'El Yunque National Forest',
                "Midewin National Tallgrass Prairie" )
 drop_units = admin_districts$FOREST_ID[match(drop_sites,admin_districts$FORESTNAME)]
 admin_districts = admin_districts[!admin_districts$FOREST_ID%in% drop_units,]
-saveRDS(admin_districts,'prepped/admin_units_clean.RDS')
+saveRDS(admin_districts,'policypolitics/prepped_inputs/admin_units_clean.RDS')
 

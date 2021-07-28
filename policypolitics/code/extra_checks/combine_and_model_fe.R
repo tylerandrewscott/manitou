@@ -1,9 +1,7 @@
 
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
-#if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
-require(INLA)
-
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
+if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','MASS','aod')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -24,14 +22,14 @@ keep_purpose = TRUE
 
 
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
+admin_districts <- readRDS('policypolitics/prepped_inputs//admin_units_clean.RDS')
 admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
 
-fs = readRDS('policypolitics/prepped/fs_PALS_cleaned_project_datatable.RDS')
+fs = readRDS('policypolitics/raw_curated_inputs/fs_PALS_cleaned_project_datatable.RDS')
 
 #system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
 #system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
-file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
+
 states = tigris::states(class = 'sf')
 states <- st_transform(states,crs = st_crs(albersNA))
 test = st_within(st_centroid(admin_districts),states)
@@ -49,7 +47,7 @@ states = st_transform(states,albersNA)
 states <- st_crop(states,st_bbox(admin_districts))
 us_counties <- st_crop(us_counties,st_bbox(admin_districts))
 
-nf = fread('policypolitics/prepped/national_forest_covariates.csv')
+nf = fread('policypolitics/prepped_inputs//national_forest_covariates.csv')
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
 
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
@@ -89,9 +87,6 @@ nf$USFS_REGION = admin_districts$REGION[match(nf$FOREST_ID,admin_districts$FORES
 library(zoo)
 
 center_continuous_cov = TRUE
-
-
-
 
 
 #BASE RATIO: remove nominate_dim1 & all macro variables. remove L1_TOTAL_EA_EIS based on Manny's comments? your call
@@ -230,10 +225,6 @@ sumvals = coef_vals[,-c('FOREST_ID','CALENDAR_YEAR',grep(' x ',names(coef_vals),
 
 corr <- round(cor(coef_vals[,-c('FOREST_ID','CALENDAR_YEAR')],use = 'pairwise.complete.obs'), 2)
 
-#install.packages("ggcorrplot")
-require(ggcorrplot)
-#ggc = ggcorrplot(corr,method = 'circle',show.diag = F,type = 'upper',lab = F)
-#ggsave(plot = ggc,filename = 'policypolitics/tables_figures/figures/correlation_plot.png',width=  8,height = 8, units = 'in',dpi = 300)
 
 
 input_data = dcast(counts_by_type,get(period_type) + 
@@ -364,11 +355,11 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
 
 
 
-library(INLA)
+
 
 pcount = fs[fs$congress>=109&fs$congress<=115,]
 
-library(ggrepel)
+
 
 
 counts_by_type[Project_Type=='Type_Purpose_Extractive',][order(-N),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
@@ -381,17 +372,11 @@ counts_by_type[Project_Type=='Type_Purpose_Extractive',][,sum(N)]
 
 subtypes = grep('Extract',subtypes,value = T)
 
-
-require(MASS)
-require(aod)
 nb_mod = glm.nb(u~ -1 + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
-                  u_ln_Receipts_Extraction_1M_P4 + #u_Ln_ACRES + u_Wilderness_Perc +
+                  u_ln_Receipts_Extraction_1M_P4 +
                   u_Burned_Perc_Past5yrs + 
-                  #u_Ln_AVERAGE_YEARLY_VISITS + 
-                  #u_Count_EorT_Species +
-                  #u_Perc_WUI_Housing + u_demPres + u_demCongress + 
                   u_mrp_mean +
-                  u_LCV_annual,data = lapply(idat,function(x) x[1:length(idat$u)]))
+                  u_LCV_annual + as.factor(u_forest_id) + u_year_id ,data = lapply(idat,function(x) x[1:length(idat$u)]))
 
 u.sdres <- sd(residuals(nb_mod))
 temp_dat = as.data.frame(lapply(idat,function(x) x[length(idat$u)+{1:length(idat$y)}]))
@@ -407,13 +392,10 @@ bin_mod = betabin(cbind(y,u-y) ~ -1 +
                     y_Perc_Extraction_Employ + 
                     y_ln_County_naturalresource_GDP_1M +
                     y_ln_Receipts_Extraction_1M_P4 + 
-                   # y_Ln_ACRES + y_Wilderness_Perc +
                     y_Burned_Perc_Past5yrs + 
-                    #y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
-                    #y_Perc_WUI_Housing + 
-                    #y_demPres + y_demCongress + 
                     y_mrp_mean +
-                    y_LCV_annual,~1,data =  temp_dat,control = list(maxit = 10e3))
+                    y_LCV_annual + as.factor(y_forest_id) + y_year_id,~1,
+                  data =  temp_dat,control = list(maxit = 10e3))
 
 y.sdres <- sd(residuals(bin_mod))
 pc.prec.used = list(prec= list(prior = "pc.prec", param = c(u.sdres,0.01)),

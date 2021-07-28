@@ -242,8 +242,8 @@ htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean
 require(gridExtra)
 
 require(sjPlot)
-ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 500,width = 6,height = 4.5, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_lcv_vs_unemp_FE.png'))
+ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 350,width = 6,height = 4.5, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_lcv_vs_unemp_FE.tiff'))
 
 
 
@@ -267,8 +267,8 @@ ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 500,width = 6,height = 4.
                        legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
 
 
-ggsave(gg_lcv_vs_unemp_extraction_interact_ce,dpi = 500,width = 6,height = 4.5, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_lcv_vs_unemp_FE.png'))
+ggsave(gg_lcv_vs_unemp_extraction_interact_ce,dpi = 350,width = 6,height = 4.5, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_lcv_vs_unemp_FE.tiff'))
 
 grid.arrange(gg_lcv_vs_unemp_extraction_interact_count,gg_lcv_vs_unemp_extraction_interact_ce,ncol = 2)
 
@@ -292,8 +292,8 @@ grid.arrange(gg_lcv_vs_unemp_extraction_interact_count,gg_lcv_vs_unemp_extractio
   ggtitle('# extractive projects',subtitle= 'Dem. vote share x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_percentD_H_vs_unemp_FE.png'))
+ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_percentD_H_vs_unemp_FE.tiff'))
 
 
 
@@ -314,8 +314,8 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units =
   ggtitle('CEs/total NEPA analyses',subtitle= 'Dem. vote share x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_percentD_H_vs_unemp_FE.png'))
+ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_percentD_H_vs_unemp_FE.tiff'))
 
 
 (gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',][order(x1_quantile),],
@@ -334,8 +334,8 @@ ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units =
   ggtitle('# extractive projects',subtitle ='Dem. rep. x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction_FE.png'))
+ggsave(gg_demRep_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction_FE.tiff'))
 
 
 
@@ -356,7 +356,7 @@ ggsave(gg_demRep_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in
   ggtitle('CEs/total NEPA analyses',subtitle ='Dem. rep. x unemployment %')+
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 500,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction_FE.png'))
+ggsave(gg_demRep_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
+       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction_FE.tiff'))
 
 

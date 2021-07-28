@@ -56,7 +56,7 @@ THE /POLICYPOLITICS/CODE/MASTER_SCRIPT.R FILE SOURCES ALL THE CODE OUTLINED BELO
 ## Help
 
 Please feel free to ping us if any links appear broken. Note that in some case, e.g., reading in wildfire burn scar GIS data from the USFS online repository, the call periodically throws an error for reasons that appear due to the idiosyncrasies of their online portal—this is often solved simply by waiting a minute and trying again.
-```
+
 
 ## Authors
 

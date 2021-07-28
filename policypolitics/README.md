@@ -62,15 +62,15 @@ Please feel free to ping us if any links appear broken. Note that in some case, 
 
 Contributors names and contact info
 
-Cory Struthers, cory.struthers@uga.edu, @corystruthers
-Tyler A. Scott, tascott@ucdavis.edu, @tylerscottphd
-Forrest Fleischman, ffleisch@umn.edu, @ForrestFleisch1
-Gwen Arnold, gbarnold@ucdavis.edu, @policyandpuppies
+Cory Struthers, cory.struthers@uga.edu, @corystruthers  
+Tyler A. Scott, tascott@ucdavis.edu, @tylerscottphd  
+Forrest Fleischman, ffleisch@umn.edu, @ForrestFleisch1  
+Gwen Arnold, gbarnold@ucdavis.edu, @policyandpuppies  
 
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details
+This project is licensed under the MIT License - see the LICENSE.md file for details
 
 ## Acknowledgments
 

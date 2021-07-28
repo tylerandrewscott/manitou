@@ -20,11 +20,11 @@ keep_decisions = c('EIS','EA','CE')
 
 td = tempdir()
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-admin_districts <- readRDS('policypolitics/prepped/admin_units_clean.RDS')
+admin_districts <- readRDS('policypolitics/prepped_inputs/admin_units_clean.RDS')
 st_crs(admin_districts) <- st_crs(albersNA)
 
 
-fs = readRDS('policypolitics/prepped/fs_PALS_cleaned_project_datatable.RDS')
+fs = readRDS('policypolitics/raw_curated_inputs/fs_PALS_cleaned_project_datatable.RDS')
 
 
 #system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
@@ -47,7 +47,7 @@ states = st_transform(states,albersNA)
 states <- st_crop(states,st_bbox(admin_districts))
 us_counties <- st_crop(us_counties,st_bbox(admin_districts))
 
-nf = fread('policypolitics/prepped/national_forest_covariates.csv')
+nf = fread('policypolitics/prepped_inputs/national_forest_covariates.csv')
 nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
 nf$FOREST_NAME = admin_districts$FORESTNAME[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf = nf[congress %in% 108:115,]
@@ -229,23 +229,18 @@ idat$mu.y <- rep(c(NA,1), each=n)
 
 
 idat$u_forest_id = c(temp_dt$FOREST_ID,rep(NA,length(y)))#temp_dt$FOREST_ID)
-idat$uc_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
 idat$y_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
 
 idat$u_congress_id = c(temp_dt$congress,rep(NA,length(y)))
-idat$uc_congress_id =  c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
 idat$y_congress_id = c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
 
 idat$u_year_id = c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))
-idat$uc_year_id =  c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
 idat$y_year_id =   c(rep(NA,length(y)),idat$u_year_id[1:length(u)])
 
 idat$u_state_id = c(temp_dt$STATE,rep(NA,length(y)))
-idat$uc_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
 idat$y_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
 
 idat$u_region_id = c(formatC(temp_dt$USFS_REGION,width = 2,flag=0),rep(NA,length(y)))
-idat$uc_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
 idat$y_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
 
 #### binomial EIS / [EA+EIS] model coefficients
@@ -335,19 +330,19 @@ cres <- list(return.marginals.predictor = FALSE,
 
 idat$u_forest_id <- forest_index$index[match(idat$u_forest_id,forest_index$forest_id)]
 idat$y_forest_id <- forest_index$index[match(idat$y_forest_id,forest_index$forest_id)] + nrow(forest_index)
-idat$uc_forest_id <-  idat$u_forest_id
+
 
 idat$u_region_id <- region_index$index[match(idat$u_region_id,region_index$region_id)]
 idat$y_region_id <- region_index$index[match(idat$y_region_id,region_index$region_id)] + nrow(region_index)
-idat$uc_region_id <-  idat$u_region_id
+
 
 idat$u_state_id <- state_index$index[match(idat$u_state_id,state_index$state_id)]
 idat$y_state_id <- state_index$index[match(idat$y_state_id,state_index$state_id)] + nrow(state_index)
-idat$uc_state_id <-  idat$u_state_id
+
 
 idat$u_congress_id <- congress_index$index[match(idat$u_congress_id,congress_index$congress_id)]
 idat$y_congress_id <- congress_index$index[match(idat$y_congress_id,congress_index$congress_id)] + nrow(congress_index)
-idat$uc_congress_id <-  idat$u_congress_id
+
 
 
 HN.prior = "expression:
@@ -386,9 +381,9 @@ HC.prior  = "expression:
 require(MASS)
 require(aod)
  nb_mod = glm.nb(u~ -1 + mu.u + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
-   u_ln_Receipts_Extraction_1M_P4 + u_Ln_ACRES + u_Wilderness_Perc +
-   u_Burned_Perc_Past5yrs + u_Ln_AVERAGE_YEARLY_VISITS + u_Count_EorT_Species +
-   u_Perc_WUI_Housing + u_demPres + u_demCongress + u_mrp_mean +
+   u_ln_Receipts_Extraction_1M_P4 + 
+   u_Burned_Perc_Past5yrs + 
+    u_mrp_mean +
    u_LCV_annual,data = lapply(idat,function(x) x[1:length(idat$u)]))
 
  u.sdres <- sd(residuals(nb_mod))
@@ -405,10 +400,9 @@ bin_mod = betabin(cbind(y,u-y) ~ 1 +
                  y_Perc_Extraction_Employ + 
                     y_ln_County_naturalresource_GDP_1M +
                  y_ln_Receipts_Extraction_1M_P4 + 
-                  y_Ln_ACRES + y_Wilderness_Perc +
-               y_Burned_Perc_Past5yrs + y_Ln_AVERAGE_YEARLY_VISITS + y_Count_EorT_Species +
-                 y_Perc_WUI_Housing + 
-                y_demPres + y_demCongress + 
+             
+               y_Burned_Perc_Past5yrs + 
+           
                 y_mrp_mean +
                  y_LCV_annual,~1,data =  temp_dat,control = list(maxit = 10e3))
 

@@ -19,15 +19,12 @@ re_mod = readRDS('policypolitics/model_objects/models_Type_Purpose_Extractive.RD
 mod_list = list(re_mod[[2]],fe_mod[[2]])
 
 coef_results = rbindlist(lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>%
-                                  mutate(specification = ifelse(x == 1,'RE','FE'),coef = rownames(.),  form =   names(mod_list)[x])))
+                                  mutate(specification = ifelse(x == 1,'random intercepts','fixed intercepts'),coef = rownames(.),  form =   names(mod_list)[x])))
 
 coef_results = coef_results[!coef%in%c('mu.u','mu.y')]
 #coef_results = coef_results[specification!=3,]
 #drop out fixed effects
 coef_results = coef_results[!grepl("_id",coef),]
-
-coef_results$specification <-   spec_names$name[match(coef_results$specification,spec_names$specification)]
-coef_results$specification <- fct_inorder(coef_results$specification)
 
 coef_results$lik <- ifelse(grepl('^u_|mu\\.u',coef_results$coef),'# projects','CEs/total analyses')
 coef_results$coef <- gsub('^y_|^u_','',coef_results$coef)
@@ -72,7 +69,6 @@ extract_coefs = coef_results
 variations = c('LCV','Dem. rep','% dem')
 varnames = c('LCV','demRep','demVote')
 
-extract_coefs
   (extract_comp = ggplot(extract_coefs,aes(x = mean,xmin = `0.025quant`,xmax = `0.975quant`,
         y = coef,col = specification,fill = as.factor(sig))) + 
     facet_wrap(~lik) + 
@@ -81,21 +77,21 @@ extract_coefs
     geom_point(position = position_dodge(0.5),pch = 19,size = 1.5) + 
     geom_point(position = position_dodge(0.5),pch = 21,size = 1.5) + 
    theme_bw() + 
-    theme(legend.position = 'bottom',axis.title.y = element_blank(),
+    theme(legend.position = 'bottom',axis.title.y = element_blank(),legend.title = element_blank(),
           axis.text = element_text(size = 12),strip.text = element_text(size = 12),
           legend.text = element_text(size = 12)) +
     scale_x_continuous(name = '95% credible interval') + 
     # scale_shape_manual(values = c(19,21))
     #scale_fill_manual(name = "outcome",values = c('white','orange','white','green'),labels = c('# projects','EIS/total')) + 
     #scale_color_manual(name = "outcome",values = c('orange','orange','green','green'),labels = c('# projects','EIS/total')) + 
-    scale_fill_manual(values = c('white',NA)) + 
-    scale_color_tableau(name = 'Specification',labels=c('random effects','fixed effects')) + 
-    guides(shape = FALSE,fill = FALSE) + 
-    ggtitle('Comparing coefficient estimates from random and fixed effect models') +
+    scale_fill_manual(values = c('white',alpha('white',0))) + 
+    scale_color_tableau(name = 'Specification') + 
+    guides(shape = 'none',fill = 'none') + 
+    ggtitle('Comparing coefficient estimates from random and fixed intercept models') +
     NULL)
 
 
-ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figureB_re_vs_fe_coefplot.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figureB_re_vs_fe_coefplot.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
   
 
 subtab = extract_coefs[grepl("LCV|Unemp",coef)]

@@ -163,10 +163,10 @@ lapply(seq_along(variations),function(x) {
   ggtitle('Extractive projects') +
   NULL
 if(varnames[x]=='LCV'){
-ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_FE_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_FE_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
 }
   if(varnames[x]!='LCV'){
-    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_FE_',varnames[x],'.png'),dpi = 500,width = 7.5,height = 8,units = 'in')
+    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_FE_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
   }
   })
 
@@ -188,7 +188,7 @@ forest_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Extractive projects') 
-ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_extraction.png',width = 8,height = 12,units = 'in',dpi = 300)
+ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_extraction.tiff',width = 8,height = 12,units = 'in',dpi = 350)
 
 temp = rbind(mod_list[[2]]$summary.random$u_forest_id %>% mutate(group = '# projects'),
              mod_list[[2]]$summary.random$y_forest_id %>% mutate(group = 'CE/total analyses'))
@@ -208,7 +208,7 @@ forest_re =  ggplot(data = temp) +
         axis.ticks = element_blank(),axis.text.y = element_text(angle = 45)) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Wildlife/recreation projects') 
-ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_rec_wildlife_FE.png',width = 9,height = 10,units = 'in',dpi = 300)
+ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_rec_wildlife_FE.tiff',width = 9,height = 10,units = 'in',dpi = 350)
 
 temp = rbind(mod_list[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
              mod_list[[2]]$summary.random$y_congress_id %>% mutate(group = 'CE/total analyses'))
@@ -220,7 +220,7 @@ congress_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by Congress',subtitle = 'Extractive projects') 
-ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_congress_extraction.png',width = 4,height = 6,units = 'in',dpi = 300)
+ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_congress_extraction.tiff',width = 4,height = 6,units = 'in',dpi = 350)
 
 
 temp_tab = (round(do.call(rbind,list(

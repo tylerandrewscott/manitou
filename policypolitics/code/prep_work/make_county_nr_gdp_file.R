@@ -1,7 +1,8 @@
+
 library(data.table)
 library(tidyverse)
 library(stringr)
-cgp = fread('input/bea_data/CAGDP2/CAGDP2__ALL_AREAS_2001_2018.csv',stringsAsFactors = F)
+cgp = fread('policypolitics/raw_curated_inputs/CAGDP2__ALL_AREAS_2001_2018.csv',stringsAsFactors = F)
 cgp$GeoFIPS = formatC(cgp$GeoFIPS,width = 5,flag = 0)
 
 state_totals = cgp[grepl('000$',GeoFIPS),]
@@ -70,7 +71,7 @@ cgp_dt2[,NaturalResources1k:=ifelse(is.na(NaturalResources1k),MineOilGas1k+AgrFo
 #wrangell city and borough  "02275"  - 2009-present
 #"02195" 	Petersburg Borough, AK* - 2009-present
 #Wrangell-Petersburg Census Area, AK   "02280"  - 2005-2008
-dim(cgp_dt2)
+
 split_in_two = function(x){return(x/2)}
 main = cgp_dt2[!(CFIPS=='02280'&YEAR<=2008),]
 sub_df = cgp_dt2[CFIPS=='02280'&YEAR<=2008,]
@@ -85,4 +86,4 @@ sub_df$YEAR <- as.character(sub_df$YEAR)
 cgp_dt2 = rbindlist(list(main,sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS =  "02230" ),sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS = "02105")))
 
 
-fwrite(cgp_dt2,'input/cpb_data/naturalresource_gdp_by_county_2002-2018.csv')
+fwrite(cgp_dt2,'policypolitics/prepped_inputs/naturalresource_gdp_by_county_2001-2018.csv')

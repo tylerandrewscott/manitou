@@ -1,7 +1,7 @@
 
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','MASS','aod')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','MASS','aod','matrixStats','stargazer')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -120,12 +120,6 @@ dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
 
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,Unemp_Rate ,CALENDAR_YEAR)])
 dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
- tt = ggplot() + geom_sf(data = dist_by_year,aes(fill = Unemp_Rate,colour = Unemp_Rate)) + 
-   facet_wrap(~CALENDAR_YEAR,ncol = 3) + 
-   ggtitle('Unemp. % by year and forest') + theme_map() + scale_fill_viridis_c() + 
-   scale_colour_viridis_c()
-#ggsave(tt,dpi = 300,filename = 'policypolitics/tables_figures/figures/Unemp_by_forest_and_year.png',height = 12,width = 8,units = 'in')
-
 
  ###### exclude all time-fixed (or nearly fixed) variables
 base_linear_form = Y ~ -1 + mu.u + mu.y + 
@@ -163,68 +157,10 @@ base_linear_form = Y ~ -1 + mu.u + mu.y +
     y_region_id+
     y_state_id)
   
-  # form0 = update.formula(base_linear_form, ~ . + 
-  #                          u_forest_id + 
-  #                          u_year_id+
-  #                          #f(u_region_id, model = 'linear') + 
-  #                          #f(u_state_id, model = 'linear') + 
-  #                          y_forest_id+
-  #                          y_year_id)
-  #                          #f(y_region_id,model = 'linear') +
-  #                          #f(y_state_id,model = 'linear'))
-  
   
   form0x = update.formula(form0, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_LCV_annual)
-  form1 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_percentD_H + y_percentD_H)
-  form1x = update.formula(form1, ~ . + u_Unemp_Rate:u_percentD_H + y_Unemp_Rate:y_percentD_H)
-  form2 = update.formula(form0, ~ . - u_LCV_annual - y_LCV_annual + u_democrat + y_democrat)
-  form2x =  update.formula(form2, ~ . + u_Unemp_Rate:u_democrat + y_Unemp_Rate:y_democrat)
-  
 
-list_of_forms = grep('form[0-2]',ls(),value=T)
-raw_vars = unlist(lapply(list_of_forms,function(x)  grep('^u_',str_split(as.character(get(x)[[3]])[2],pattern = '\\s\\+\\s')[[1]],value=T) ))
-library(matrixStats)
-uvars = grep('^u_',raw_vars,value = T)
-library(stargazer)
-uvars_no_int = grep(':',uvars,value = T,invert = T)
-uvars_int = grep(':',uvars,value = T,invert = F)
-
-uvars_interaction_products = as.data.table(sapply(str_split(uvars_int ,':'),function(x) rowProds(as.matrix(nf[FOREST_ID %in% fs$FOREST_ID &CALENDAR_YEAR %in% start_year:end_year,gsub('u_','',(unlist(x))),with = F]))))
-names(uvars_interaction_products) <- gsub('u_','',uvars_int)
-
-nf = nf[nf$congress%in%109:115,]
-
-coef_vals = cbind(nf[FOREST_ID %in% fs$FOREST_ID & CALENDAR_YEAR %in% start_year:end_year,c('FOREST_ID','CALENDAR_YEAR',unique(gsub('u_','',uvars_no_int))),with = F],uvars_interaction_products)
-swap_names = names(coef_vals)
-swap_names = as.factor(swap_names)
-
-swap_names = fct_recode(swap_names,
-                        '(intercept)' = 'mu.u',
-                        '% wilderness area' = 'Wilderness_Perc',
-                        '% dem. vote share' = 'percentD_H',
-                        '% housing in WUI' = 'Perc_WUI_Housing',
-                        'Public ideology' = 'mrp_mean',
-                        '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
-                        'ln(Resource receipts, last 4 yrs)' = 'ln_Receipts_Extraction_1M_P4',
-                        'ln(Recreation receipts, last 4 yrs)' = 'ln_Receipts_Recreation_1M_P4',
-                        '% burned last 5 years'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
-                        'Unemployment %' = 'Unemp_Rate','% extraction employ.' = 'Perc_Extraction_Employ',
-                        'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS','ln($1M county NR GDP)' = 'ln_County_naturalresource_GDP_1M',
-                        'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
-                        "% dem. vote x unemp. %" = "Unemp_Rate:percentD_H"   ,
-                        'Dem. rep.' = 'democrat','Dem. rep. x unemp.  %' = "Unemp_Rate:democrat" ,
-                        'LCV annual x unemp. %' = 'Unemp_Rate:LCV_annual',
-                        'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
-colnames(coef_vals) <- as.character(swap_names)
-
-
-sumvals = coef_vals[,-c('FOREST_ID','CALENDAR_YEAR',grep(' x ',names(coef_vals),value = T)),with = F]
-
-
-#coef_html_table = stargazer(sumvals,summary = T,digits = 3,digits.extra = 0, summary.stat =c('min','mean','median','max'), out = 'policypolitics/tables_figures/tables/table1_variable_summaries.html')
-
-corr <- round(cor(coef_vals[,-c('FOREST_ID','CALENDAR_YEAR')],use = 'pairwise.complete.obs'), 2)
-
+list_of_forms = grep('form0',ls(),value=T)
 
 
 input_data = dcast(counts_by_type,get(period_type) + 
@@ -255,13 +191,6 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   temp_dt$ln_Receipts_Extraction_1M_P4[is.na(temp_dt$ln_Receipts_Extraction_1M_P4)] <- 0
   
   
-  #  ln_Receipts_Extraction_1M_P4 + 
-  #Ln_ACRES + 
-  #Wilderness_Perc 
-  #Ln_AVERAGE_YEARLY_VISITS +
-  #Count_EorT_Species + 
-  #Perc_WUI_Housing +
-  #   Burned_Perc_Past5yrs + 
   
 
   n = nrow(temp_dt)
@@ -277,23 +206,23 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
 
 
   idat$u_forest_id = c(temp_dt$FOREST_ID,rep(NA,length(y)))#temp_dt$FOREST_ID)
-  idat$uc_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
+
   idat$y_forest_id = c(rep(NA,length(y)),idat$u_forest_id[1:length(u)])
   
   idat$u_congress_id = c(temp_dt$congress,rep(NA,length(y)))
-  idat$uc_congress_id =  c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
+
   idat$y_congress_id = c(rep(NA,length(y)),idat$u_congress_id[1:length(u)])
   
   idat$u_year_id = as.factor(as.character(c(temp_dt$CALENDAR_YEAR,rep(NA,length(y)))))
-  idat$uc_year_id =  c(rep(NA,length(y)),as.factor(as.character(idat$u_year_id[1:length(u)])))
+
   idat$y_year_id =   c(rep(NA,length(y)),as.factor(as.character(idat$u_year_id[1:length(u)])))
   
   idat$u_state_id = c(temp_dt$STATE,rep(NA,length(y)))
-  idat$uc_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
+
   idat$y_state_id = c(rep(NA,length(y)),idat$u_state_id[1:length(u)])
   
   idat$u_region_id = c(temp_dt$USFS_REGION,rep(NA,length(y)))
-  idat$uc_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
+
   idat$y_region_id = c(rep(NA,length(y)),idat$u_region_id[1:length(u)])
 
   #### binomial EIS / [EA+EIS] model coefficients
@@ -311,16 +240,14 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$y_Burned_Perc_Past5yrs = c(rep(NA,narep),scale(temp_dt$Burned_Perc_Past5yrs)) 
   idat$y_Ln_AVERAGE_YEARLY_VISITS = c(rep(NA,narep),scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS)) 
   idat$y_Count_EorT_Species= c(rep(NA,narep),scale(temp_dt$Count_EorT_Species)) 
-  idat$y_percentD_H = c(rep(NA,narep),scale(temp_dt$percentD_H)) 
-  
+
   idat$y_LCV_annual= c(rep(NA,narep),scale(temp_dt$LCV_annual))
   idat$y_raw_LCV_annual= c(rep(NA,narep),temp_dt$LCV_annual)
   idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
   
   idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
   idat$y_demCongress = c(rep(NA,narep),temp_dt$demCongress)
-  idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
-  idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
+
   idat$y_Perc_WUI_Housing = c(rep(NA,narep),scale(temp_dt$Perc_WUI_Housing))
   
   idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
@@ -339,17 +266,14 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
   idat$u_Burned_Perc_Past5yrs = c(scale(temp_dt$Burned_Perc_Past5yrs),rep(NA,narep)) 
   idat$u_Ln_AVERAGE_YEARLY_VISITS = c(scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS),rep(NA,narep)) 
   idat$u_Count_EorT_Species= c(scale(temp_dt$Count_EorT_Species),rep(NA,narep)) 
-  idat$u_percentD_H = c(scale(temp_dt$percentD_H),rep(NA,narep)) 
- 
+
   idat$u_LCV_annual= c(scale(temp_dt$LCV_annual),rep(NA,narep)) 
   idat$u_raw_LCV_annual= c(temp_dt$LCV_annual,rep(NA,narep)) 
   idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
-  idat$u_democrat = c(temp_dt$democrat,rep(NA,narep))
-  idat$y_democrat = c(rep(NA,narep),temp_dt$democrat)
+
   idat$u_demPres = c(temp_dt$demPres,rep(NA,narep))
   idat$u_demCongress = c(temp_dt$demCongress,rep(NA,narep))
-  idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
-  idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
+
   idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
   idat$n = n;idat$y = y;idat$u = u;
 
@@ -358,13 +282,6 @@ mod = subtypes; nf = nf; project_type_counts_for_model = counts_by_type;period =
 
 
 pcount = fs[fs$congress>=109&fs$congress<=115,]
-
-
-
-
-counts_by_type[Project_Type=='Type_Purpose_Extractive',][order(-N),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
-counts_by_type[Project_Type=='Type_Purpose_Extractive',sum(N),by=.(CALENDAR_YEAR,FOREST_ID)][order(-V1),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
-
 
 counts_by_type$UNIT = admin_districts$FORESTNAME[match(counts_by_type$FOREST_ID,admin_districts$FOREST_ID)]
 
@@ -418,21 +335,21 @@ cres <- list(return.marginals.predictor = FALSE,
   
   idat$u_forest_id <- ifelse(is.na(forest_index$index[match(idat$u_forest_id,forest_index$forest_id)]),NA,paste0('forest_',forest_index$index[match(idat$u_forest_id,forest_index$forest_id)]))
   idat$y_forest_id <- ifelse(is.na(forest_index$index[match(idat$y_forest_id,forest_index$forest_id)]),NA,paste0('forest_',forest_index$index[match(idat$y_forest_id,forest_index$forest_id)]))
-  idat$uc_forest_id <-  idat$u_forest_id
+
   
   
   idat$u_region_id <- ifelse(is.na(idat$u_region_id),NA,paste0('region_',idat$u_region_id))
   idat$y_region_id <-  ifelse(is.na(idat$y_region_id),NA,paste0('region_',idat$y_region_id))
-  idat$uc_region_id <-  idat$u_region_id
+
 
   
   idat$u_state_id <- ifelse(is.na(state_index$index[match(idat$u_state_id,state_index$state_id)]),NA,paste0('state_',state_index$index[match(idat$u_state_id,state_index$state_id)]))
   idat$y_state_id <- ifelse(is.na(state_index$index[match(idat$y_state_id,state_index$state_id)]),NA,paste0('state_',state_index$index[match(idat$y_state_id,state_index$state_id)]))
-  idat$uc_state_id <-  idat$u_state_id
+
   
   idat$u_congress_id <- ifelse(is.na(congress_index$index[match(idat$u_congress_id,congress_index$congress_id)]),NA,paste0('congress_',congress_index$index[match(idat$u_congress_id,congress_index$congress_id)]))
   idat$y_congress_id <- ifelse(is.na(congress_index$index[match(idat$y_congress_id,congress_index$congress_id)]),NA,paste0('congress_',congress_index$index[match(idat$y_congress_id,congress_index$congress_id)]))
-  idat$uc_congress_id <-  idat$u_congress_id
+
 
   ######### not returning marginals greatly reduces object size #######
   cres <- list(return.marginals.predictor = FALSE, 
@@ -449,5 +366,5 @@ cres <- list(return.marginals.predictor = FALSE,
   
   names(mod_list) <- list_of_forms
 
-    saveRDS(mod_list,paste0('policypolitics/model_objects/models_',subtypes,'_FE.RDS'))
+saveRDS(mod_list,paste0('policypolitics/model_objects/models_',subtypes,'_FE.RDS'))
 

@@ -2,7 +2,7 @@
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
 
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','matrixStats','stargazer','MASS','aod','pbapply')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -25,12 +25,10 @@ st_crs(admin_districts) <- st_crs(albersNA)
 
 
 fs = readRDS('policypolitics/raw_curated_inputs/fs_PALS_cleaned_project_datatable.RDS')
-
-
 #system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
 #system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
 #file.remove(list.files('output/policypolitics/tables/',pattern = 'coefs',full.names = T))
-states = tigris::states(class = 'sf')
+states = tigris::states(class = 'sf',year = '2017')
 states <- st_transform(states,crs = st_crs(albersNA))
 
 test = st_within(st_centroid(admin_districts),states)
@@ -94,12 +92,9 @@ nf$Burned_Perc_Past5yrs = nf$Burned_Prop_Past5yrs * 100
 nf$ACRES = admin_districts$GIS_ACRES[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
 nf$demCongress[nf$demCongress==2] <- 0
 nf$congress = as.character(nf$congress)
-nf$nominate_dim1  = nf$nominate_dim1  * -1
-nf$nominate_dim2  = nf$nominate_dim2  * -1
+
 nf$mrp_mean = nf$mrp_mean * -1
 
-nf$ComLCV = (nf$nrComLCV+nf$agComLCV)/2
-nf$ChairLCV = (nf$nrChairLCV + nf$agChairLCV)/2
 
 nf$Ln_ACRES = log(nf$ACRES)
 nf$Ln_AVERAGE_YEARLY_VISITS = log(nf$Average_Yearly_Visits)
@@ -176,9 +171,9 @@ form0x = update.formula(form0, ~ . + u_Unemp_Rate:u_LCV_annual + y_Unemp_Rate:y_
 
 list_of_forms = grep('form[0-2]',ls(),value=T)
 raw_vars = unlist(lapply(list_of_forms,function(x)  grep('^u_',str_split(as.character(get(x)[[3]])[2],pattern = '\\s\\+\\s')[[1]],value=T) ))
-library(matrixStats)
+
 uvars = grep('^u_',raw_vars,value = T)
-library(stargazer)
+
 uvars_no_int = grep(':',uvars,value = T,invert = T)
 uvars_int = grep(':',uvars,value = T,invert = F)
 
@@ -256,7 +251,7 @@ idat$y_Wilderness_Perc = c(rep(NA,narep),scale(temp_dt$Wilderness_Perc))
 idat$y_Burned_Perc_Past5yrs = c(rep(NA,narep),scale(temp_dt$Burned_Perc_Past5yrs)) 
 idat$y_Ln_AVERAGE_YEARLY_VISITS = c(rep(NA,narep),scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS)) 
 idat$y_Count_EorT_Species= c(rep(NA,narep),scale(temp_dt$Count_EorT_Species)) 
-idat$y_percentD_H = c(rep(NA,narep),scale(temp_dt$percentD_H)) 
+
 #idat$y_democrat = c(rep(NA,narep),scale(temp_dt$democrat))  
 idat$y_LCV_annual= c(rep(NA,narep),scale(temp_dt$LCV_annual))
 idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
@@ -265,8 +260,7 @@ idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
 #idat$y_nominate_dim1_x_y_democrat =  c(rep(NA,narep),scale(temp_dt$nominate_dim1) * scale(temp_dt$democrat))
 idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
 idat$y_demCongress = c(rep(NA,narep),temp_dt$demCongress)
-idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
-idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
+
 idat$y_Perc_WUI_Housing = c(rep(NA,narep),scale(temp_dt$Perc_WUI_Housing))
 
 idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
@@ -284,27 +278,21 @@ idat$u_Wilderness_Perc = c(scale(temp_dt$Wilderness_Perc),rep(NA,narep))
 idat$u_Burned_Perc_Past5yrs = c(scale(temp_dt$Burned_Perc_Past5yrs),rep(NA,narep)) 
 idat$u_Ln_AVERAGE_YEARLY_VISITS = c(scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS),rep(NA,narep)) 
 idat$u_Count_EorT_Species= c(scale(temp_dt$Count_EorT_Species),rep(NA,narep)) 
-idat$u_percentD_H = c(scale(temp_dt$percentD_H),rep(NA,narep)) 
+
 #idat$u_democrat = c(scale(temp_dt$democrat),rep(NA,narep))  
 idat$u_LCV_annual= c(scale(temp_dt$LCV_annual),rep(NA,narep)) 
 idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
-idat$u_democrat = c(temp_dt$democrat,rep(NA,narep))
-idat$y_democrat = c(rep(NA,narep),temp_dt$democrat)
+
 idat$u_demPres = c(temp_dt$demPres,rep(NA,narep))
 idat$u_demCongress = c(temp_dt$demCongress,rep(NA,narep))
-idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
-idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
+
 idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
 
 # idat$u_ln_County_naturalresource_GDP_1M_L1 = c(scale(temp_dt$ln_County_naturalresource_GDP_1M_L1),rep(NA,narep))
 idat$n = n;idat$y = y;idat$u = u;
 
-library(INLA)
-pcount = fs[fs$congress>=109&fs$congress<=115,]
-table(pcount$`DECISION TYPE`)
-table(pcount$`DECISION TYPE`,pcount$Type_Purpose_Extractive)
 
-library(ggrepel)
+pcount = fs[fs$congress>=109&fs$congress<=115,]
 
 
 counts_by_type[Project_Type=='Type_Purpose_Extractive',][order(-N),][CALENDAR_YEAR==start_year&FOREST_ID=='0302',]
@@ -378,8 +366,6 @@ HC.prior  = "expression:
 
 
 
-require(MASS)
-require(aod)
  nb_mod = glm.nb(u~ -1 + mu.u + u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
    u_ln_Receipts_Extraction_1M_P4 + 
    u_Burned_Perc_Past5yrs + 
@@ -407,7 +393,6 @@ bin_mod = betabin(cbind(y,u-y) ~ 1 +
                  y_LCV_annual,~1,data =  temp_dat,control = list(maxit = 10e3))
 
 y.sdres <- sd(residuals(bin_mod))
-
 u.resp <- sd(idat$u,na.rm = T)
 y.resp <- sd(idat$y/idat$u,na.rm=T)
 
@@ -432,7 +417,6 @@ prior.list = list(
                       prec = list(prior = "pc.prec", param = c(y.sdres,0.01)))
 ) 
 
-require(pbapply)
 mod_list = pblapply(prior.list,function(f) {print(f);gc();
   if(length(f)==1){iid_prior_u = iid_prior_y = f}
   if(length(f)>1){
@@ -443,16 +427,11 @@ mod_list = pblapply(prior.list,function(f) {print(f);gc();
        control.fixed = list(expand.factor.strategy = "model.matrix",prec = bprior),
        control.family = famcontrol,
        control.results = cres,
-       data=idat, control.compute = list(waic=TRUE),
+       data=idat, control.compute = list(waic=TRUE,return.marginals=F),
        control.predictor=list(compute=TRUE),verbose=F)
   tmod$prior = f
   tmod
 },cl = 1)
-
-
-saveRDS(mod_list,'policypolitics/model_objects/prior_sensitivity_mods.RDS')
-
-sapply(mod_list,function(x) x$waic$waic)
 
 hpars = lapply(mod_list,'[[','summary.hyperpar')
 
@@ -487,8 +466,7 @@ gg_priors = ggplot(hypers[!grepl('dispersion',param),]) +
   ggtitle('Sensitivity of iid latent effects to prior distribution',
           '(scale varies by panel)')
 
-ggsave(filename = 'policypolitics/tables_figures/figures/prior_sensitivity.png',plot = gg_priors,width= 7,height = 9,dpi = 500,units = 'in')
-
+ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA1_prior_sensitivity.png',plot = gg_priors,width= 7,height = 9,dpi = 500,units = 'in')
 
 
 res = rbindlist(lapply(seq_along(mod_list),function(x) data.table(prior = names(mod_list)[x],
@@ -524,7 +502,7 @@ focal_priors = ggplot(data = res,aes(x = prior,y = mean,ymin = `0.025quant`,ymax
   facet_wrap(coef~lik,ncol = 2) + coord_flip() + theme_bw() +xlab('Prior distribution')+
   ylab('95% credible interval') + ggtitle('Focal parameter estimates w/ \ndifferent priors in iid latent effects')
 
-ggsave(filename = 'policypolitics/tables_figures/figures/focal_prior_sensitivity.png',plot = focal_priors,width= 5,height = 6.25,dpi = 500,units = 'in')
+ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA2_focal_prior_sensitivity.png',plot = focal_priors,width= 5,height = 6.25,dpi = 500,units = 'in')
 
 
 

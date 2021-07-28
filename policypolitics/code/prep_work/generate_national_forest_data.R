@@ -1,5 +1,5 @@
 
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','lubridate','pbapply','parallel','zoo','readxl')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','lubridate','pbapply','parallel','zoo','readxl','tigris')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -8,7 +8,7 @@ cores = detectCores()-2
 first_year = 2000;last_year = 2020
 # projection to use for all spatial data
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
-admin_districts <- readRDS('policypolitics/raw_curated_inputs/admin_units_clean.RDS')
+admin_districts <- readRDS('policypolitics/prepped_inputs/admin_units_clean.RDS')
 admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
 
 # create a temporary folder that stores downloaded shapefile, extract contents and load
@@ -41,9 +41,92 @@ fs_county_intersects = fs_county_intersects[fs_county_intersects$prop_in_county>
 fs_county_intersects$FOREST_ID <- formatC(fs_county_intersects$FOREST_ID,width = 4,flag = 0)
 
 county_over = as.data.table(fs_county_intersects)
-### reads in pre-made file with natural resource gdp by county
 
-county_nr = fread('policypolitics/raw_curated_inputs//naturalresource_gdp_by_county_2001-2018.csv')
+
+
+cgp = fread('policypolitics/raw_curated_inputs/CAGDP2__ALL_AREAS_2001_2018.csv',stringsAsFactors = F)
+cgp$GeoFIPS = formatC(cgp$GeoFIPS,width = 5,flag = 0)
+
+state_totals = cgp[grepl('000$',GeoFIPS),]
+cgp = cgp[!grepl('000$',GeoFIPS),]
+
+#test for alaska
+#state_totals = state_totals[GeoFIPS=='02000']
+#cgp = cgp[grepl('^02',GeoFIPS)]
+
+cgp = cgp[LineCode%in%c(2,3,6,87),]
+state_totals = state_totals[LineCode%in%c(2,3,6,87),]
+
+cgp[,Region:=NULL]
+cgp[,TableName:=NULL]
+cgp[,LineCode:=NULL]
+cgp[,GeoName:=NULL]
+cgp[,Unit:=NULL]
+cgp[,IndustryClassification:=NULL]
+
+state_totals[,Region:=NULL]
+state_totals[,TableName:=NULL]
+state_totals[,LineCode:=NULL]
+state_totals[,GeoName:=NULL]
+state_totals[,Unit:=NULL]
+state_totals[,IndustryClassification:=NULL]
+
+cgp_dt = data.table::melt(cgp,id.vars = c('GeoFIPS','Description'))
+cgp_dt$value <- as.numeric(cgp_dt$value)
+cgp_dt2 = dcast(cgp_dt,GeoFIPS + variable ~ Description,id.vars = 'value')
+names(cgp_dt2) <- c('CFIPS','YEAR','AgrForestFishHunt1k','MineOilGas1k','PrivateIndustry','NaturalResources1k')
+cgp_dt2$YEAR = as.numeric(as.character(cgp_dt2$YEAR))
+cgp_dt2$STATE = paste0(str_extract(cgp_dt2$CFIPS,'^[0-9]{2}'),'000')
+cgp_dt2 = cgp_dt2[YEAR>=2002]
+
+
+state_dt = data.table::melt(state_totals,id.vars = c('GeoFIPS','Description'))
+state_dt$value <- as.numeric(state_dt$value)
+state_dt2 = dcast(state_dt,GeoFIPS + variable ~ Description,id.vars = 'value')
+names(state_dt2) <- c('STATE','YEAR','State_AgrForestFishHunt1k','State_MineOilGas1k','PrivateIndustry','State_NaturalResources1k')
+state_dt2$YEAR = as.numeric(as.character(state_dt2$YEAR))
+state_dt2 = state_dt2[YEAR>=2002]
+
+cgp_dt2[is.na(AgrForestFishHunt1k),PI_Multiple:=PrivateIndustry/sum(PrivateIndustry,na.rm=T),by=.(YEAR,STATE)]
+cgp_dt2[,AccountedAgrForestFishHunt1k:=sum(AgrForestFishHunt1k,na.rm=T),by=.(YEAR,STATE)]
+cgp_dt2 = data.table(left_join(cgp_dt2,state_dt2[,.(STATE,YEAR,State_AgrForestFishHunt1k)]))
+cgp_dt2[,UnaccountedAgrForestFishHunt1k:=State_AgrForestFishHunt1k-AccountedAgrForestFishHunt1k]
+cgp_dt2[,Imputed_AgrForestFishHunt1k:=UnaccountedAgrForestFishHunt1k*PI_Multiple]
+cgp_dt2[,AgrForestFishHunt1k:=ifelse(is.na(AgrForestFishHunt1k),Imputed_AgrForestFishHunt1k,AgrForestFishHunt1k)]
+
+cgp_dt2[is.na(MineOilGas1k),PI_Multiple:=PrivateIndustry/sum(PrivateIndustry,na.rm=T),by=.(YEAR,STATE)]
+cgp_dt2[,AccountedMineOilGas1k:=sum(MineOilGas1k,na.rm=T),by=.(YEAR,STATE)]
+cgp_dt2 = data.table(left_join(cgp_dt2,state_dt2[,.(STATE,YEAR,State_MineOilGas1k)]))
+cgp_dt2[,UnaccountedMineOilGas1k:=State_MineOilGas1k-AccountedMineOilGas1k]
+cgp_dt2[,Imputed_MineOilGas1k:=UnaccountedMineOilGas1k*PI_Multiple]
+cgp_dt2[,MineOilGas1k:=ifelse(is.na(MineOilGas1k),Imputed_MineOilGas1k,MineOilGas1k)]
+cgp_dt2[,NaturalResources1k:=ifelse(is.na(NaturalResources1k),MineOilGas1k+AgrForestFishHunt1k,NaturalResources1k)]
+
+
+#AK footnotes
+
+#Estimates from 2009 forward separate Wrangell-Petersburg Census Area into Petersburg Census Area and Wrangell City and Borough. 
+#In addition, a part of the Prince of Wales-Outer Ketchikan Census Area was annexed by Ketchikan Gateway Borough and part (Meyers Chuck Area) was included in the new Wrangell City and Borough. The remainder of the Prince of Wales-Outer Ketchikan Census Area was renamed Prince of Wales-Hyder Census Area. 
+#Petersburg Borough was created from part of former Petersburg Census Area and part of Hoonah-Angoon Census Area for 2013 forward. 
+#For years 2009-2012, Petersburg Borough reflects the geographic boundaries of the former Petersburg Census Area. 
+#wrangell city and borough  "02275"  - 2009-present
+#"02195" 	Petersburg Borough, AK* - 2009-present
+#Wrangell-Petersburg Census Area, AK   "02280"  - 2005-2008
+
+split_in_two = function(x){return(x/2)}
+main = cgp_dt2[!(CFIPS=='02280'&YEAR<=2008),]
+sub_df = cgp_dt2[CFIPS=='02280'&YEAR<=2008,]
+sub_df$YEAR <- as.character(sub_df$YEAR)
+cgp_dt2 = rbindlist(list(main,sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS = '02195'),sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS = '02275')))
+
+#Estimates from 2008 forward separate Skagway-Hoonah-Angoon Census Area into Skagway Municipality and Hoonah-Angoon Census Area. 
+split_in_two = function(x){return(x/2)}
+main = cgp_dt2[!(CFIPS== "02232" &YEAR<=2007),]
+sub_df = cgp_dt2[CFIPS== "02232" &YEAR<=2007,]
+sub_df$YEAR <- as.character(sub_df$YEAR)
+cgp_dt2 = rbindlist(list(main,sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS =  "02230" ),sub_df %>% mutate_if(is.numeric,split_in_two) %>% mutate(CFIPS = "02105")))
+
+county_nr <- cgp_dt2 
 county_nr$CFIPS = formatC(county_nr$CFIPS,width = 5,flag = 0)
 county_nr[,STATE:=NULL]
 county_nr$NaturalResources1M <- county_nr$NaturalResources1k/1e3
@@ -68,16 +151,16 @@ county_lau$LAU = as.numeric(county_lau$LAU)
 
 county_lau = dcast(county_lau,YEAR + CFIPS ~ MONTH,value.var = 'LAU')
 setnames(county_lau,c('January','October'),c('LAU_January','LAU_October'))
+county_lau$YEAR <- as.character(county_lau$YEAR)
 county_econ = data.table(full_join(county_lau,county_nr[,.(CFIPS,YEAR,NaturalResources1M)]))
 
-
-
-cbp_list = lapply(list.files('policypolitics/raw_curated_inputs/','with_ann',full.names = T),function(x) {
+cbp_list = lapply(list.files('policypolitics/raw_curated_inputs/cpb_data/','with_ann',full.names = T),function(x) {
   tt=fread(x,skip = 1)
   names(tt) = gsub('[0-9]{4}\\s','',names(tt));names(tt) = gsub("Paid employees for pay period including March 12 (number)","Number of employees",names(tt),fixed=T)
   tt})
 cbp_dt = rbindlist(cbp_list,fill = T)
 cbp_dt = cbp_dt[,.(Id2,`NAICS code`,Year,`Number of employees`)]
+
 setnames(cbp_dt,c('Id2',"NAICS code","Number of employees"),c('CFIPS','NAICS',"Number_employees"))
 cbp_dt$CFIPS = formatC(cbp_dt$CFIPS,width=5,flag=0)
 cbp_dt = dcast(cbp_dt,CFIPS + Year ~ NAICS,value.var = 'Number_employees')
@@ -97,7 +180,7 @@ cbp_dt$Prop_Recreation =  cbp_dt$recreation_entertainment/cbp_dt$all_employees
 cbp_dt$Prop_HuntingFishing = cbp_dt$fishing_hunting/cbp_dt$all_employees
 cbp_dt$Prop_NaturalResourceEmployment <- replace_na(cbp_dt$Prop_HuntingFishing,0) + replace_na(cbp_dt$Prop_Forestry_Employ,0)+replace_na(cbp_dt$Prop_Mining_Employ,0)
 setnames(cbp_dt,'Year','YEAR')
-
+cbp_dt$YEAR <- as.character(cbp_dt$YEAR)
 county_econ = data.table(left_join(county_econ,cbp_dt[,.(CFIPS,YEAR,Prop_NaturalResourceEmployment)]))
 county_econ[order(CFIPS,YEAR),Prop_NaturalResourceEmployment:=zoo::na.locf(Prop_NaturalResourceEmployment,na.rm=F),by = .(CFIPS)]
 
@@ -114,19 +197,6 @@ setkey(forest_weighted_econ,FOREST_ID,CALENDAR_YEAR)
 setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
 temp_dt = left_join(temp_dt,forest_weighted_econ)
 temp_dt = data.table(temp_dt)
-
-countyVS = readRDS('policypolitics/raw_curated_inputs/countyVoteShare_3-2020_imputed.rds')
-setkey(countyVS,'CFIPS')
-countyVS = countyVS[county_over,]
-setnames(countyVS,'FISCAL_YEAR','CALENDAR_YEAR')
-forest_weighted_demVS = countyVS[,weighted.mean(percentD_H,prop_in_county),by=.(FOREST_ID,congress,CALENDAR_YEAR)]
-setnames(forest_weighted_demVS,'V1','percentD_H')
-
-setkey(forest_weighted_demVS,FOREST_ID,CALENDAR_YEAR)
-setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
-temp_dt=left_join(temp_dt,forest_weighted_demVS)
-
-
 
 # library(readxl)
 # receipts = data.table(read_excel('input/usfs_internal_data/USFSGrossReceipts_cleaned.xlsx',skip = 3))
@@ -163,8 +233,6 @@ temp_dt =  left_join(temp_dt,timber_cut)
 temp_dt = data.table(temp_dt)
 
 
-
-library(readxl)
 wui = read_excel('policypolitics/raw_curated_inputs/COUNTY_WUI_change_1990_2010_Stats_Report.xlsx',sheet = 'HOUSING',skip = 1)
 wui$WUI_Housing = wui$`2000...11` 
 wui$NON_WUI_Housing = wui$`2000...14`
@@ -486,7 +554,7 @@ gross_receipts = gross_receipts[,c('Year','National Forest Code',grep('Inflation
 setnames(gross_receipts,'National Forest Code','FOREST_ID')
 gross_receipts$FOREST_ID <- formatC(gross_receipts$FOREST_ID,width = 4, flag = 0)
 setnames(gross_receipts, 'Inflation Adjusted Total Gross Receipts','Total_Gross_Receipts')
-require(dplyr)
+
 
 setnames(gross_receipts,
 c("Inflation Adjusted Class1 - Timber","Inflation Adjusted Class2 - Grazing East",      

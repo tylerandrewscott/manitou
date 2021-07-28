@@ -12,6 +12,9 @@ lapply(packages,require,character.only = T)
  
   admin_districts <- readRDS('policypolitics/prepped_inputs//admin_units_clean.RDS')
   
+  nf = fread('policypolitics/prepped_inputs/national_forest_covariates.csv')
+  
+  nf$FOREST_ID = formatC(nf$FOREST_ID,width = 4,flag = 0)
   
   forest_index = data.table(forest_id = rep(sort(unique(nf$FOREST_ID)),2),index = seq(length(unique(nf$FOREST_ID))*2))
   region_index = data.table(region_id = sort(unique(nf$USFS_REGION)),index = seq_along(unique(nf$USFS_REGION)))
@@ -21,7 +24,7 @@ lapply(packages,require,character.only = T)
   
   
   locs = 'policypolitics/model_objects/'
-  spec_names = data.table(specification = 1:6,name =c('Annual LCV score','LCV x % unemp','% dem. vote','% dem. x % unemp','Dem. rep.','Dem. rep. % unemp.'))
+  spec_names = data.table(specification = 1:2,name =c('Annual LCV score','LCV x % unemp'))
 
   
   mod_list = readRDS(paste0('policypolitics/model_objects/models_Type_Purpose_Extractive.RDS'))
@@ -38,7 +41,7 @@ lapply(packages,require,character.only = T)
  (waic_table = as.data.table(lapply(mod_list,function(y) y$waic$waic)))
   colnames(waic_table) <- names(mod_list)
   
- fwrite(waic_table,'policypolitics/tables_figures/tables/waic_table.csv')
+ fwrite(waic_table,'policypolitics/tables_figures/tables/extra_tables/waic_table.csv')
 
   coef_df = rbindlist(lapply(seq_along(mod_list), function(y) {
     mod_list[[y]]$summary.fixed[,c(1,3,5)] %>% mutate(coef = rownames(.), mod = y,DV = names(mod_list)[y])}))
@@ -63,7 +66,7 @@ lapply(packages,require,character.only = T)
   simple_table$coef = fct_recode(simple_table$coef,
                                  '(intercept)' = 'mu.u',
                                  '% wilderness area' = 'Wilderness_Perc',
-                                 '% dem. vote share' = 'percentD_H',
+  
                                  '% housing in WUI' = 'Perc_WUI_Housing',
                                  '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
                                  '% burned (last 5 years)'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
@@ -71,24 +74,24 @@ lapply(packages,require,character.only = T)
                                  'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS',
                                  'ln(county NR GDP ($1M))' = 'ln_County_naturalresource_GDP_1M',
                                  'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
-                                 "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
+                        
                                  'Public ideology' = 'mrp_mean',
-                                 'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
+                    
                                  'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual')
   
   simple_table$coef  = fct_relevel( simple_table$coef ,'ln(forest acreage)','ln(yearly visitation)',
               '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
               '% extraction employ.','ln(county NR GDP ($1M))',
               'Democratic president','Democratic congress',
-              '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
-              "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
+            'LCV annual score', 'Unemployment %',
+              'LCV annual x unemp. %')
 
 
 temp_coef_table = simple_table
 library(tableHTML)
   ht = tableHTML(temp_coef_table,rownames = F,footer = paste0('WAIC scores-Model 1: ',round(as.numeric(waic_table[1,1])),'; Model 2: ',round(as.numeric(waic_table[1,2]))), headers = c('parameter','Model 1: baseline','Model 2: LCV x % unemp.','Model 1: baseline','Model 2: LCV x % unemp.'),
           second_headers = list(c(1,2,2),c('','# projects (neg. binomial)','CE ratio (beta-binomial)')))
-write_tableHTML(ht, file = 'policypolitics/tables_figures/tables/tableB2_coefficient_estimates.html')
+write_tableHTML(ht, file = 'policypolitics/tables_figures/tables/tables_in_paper/tableA2_coefficient_estimates.html')
 
 
   coef_results = rbindlist(lapply(seq_along(mod_list),function(x) mod_list[[x]]$summary.fixed[,c(1,3,5)] %>%
@@ -106,7 +109,7 @@ coef_results$coef <- gsub('^y_|^u_','',coef_results$coef)
 coef_results$coef <- gsub(':y_|:u_','x',coef_results$coef)
 
 coef_results$coef = fct_recode(coef_results$coef, '% wilderness area' = 'Wilderness_Perc',
-                               '% dem. vote share' = 'percentD_H',
+                    
                                '% housing in WUI' = 'Perc_WUI_Housing',
            '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
            '% burned (last 5 years)'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
@@ -115,13 +118,12 @@ coef_results$coef = fct_recode(coef_results$coef, '% wilderness area' = 'Wildern
            'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS',
            'ln(county NR GDP ($1M))' = 'ln_County_naturalresource_GDP_1M',
            'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
-           "% dem. vote x unemp. %" = "Unemp_RatexpercentD_H"   ,
+
            'ln(Resource receipts, last 4 yrs)' = 'ln_Receipts_Extraction_1M_P4',
-           'ln(Recreation receipts, last 4 yrs)' = 'ln_Receipts_Recreation_1M_P4',
+
            'Public ideology' = 'mrp_mean',
-           'Dem. rep.' = 'democrat','Dem. rep. x unemp. %' = "Unemp_Ratexdemocrat" ,
-           'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual',
-           'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
+
+           'LCV annual x unemp. %' = 'Unemp_RatexLCV_annual')
     
 #coef_results$coef <- fct_inorder(coef_results$coef)
 coef_results$coef <- fct_relevel(coef_results$coef,'ln(forest acreage)','ln(yearly visitation)',
@@ -129,8 +131,8 @@ coef_results$coef <- fct_relevel(coef_results$coef,'ln(forest acreage)','ln(year
                                  '% wilderness area','# listed species','% burned (last 5 years)','% housing in WUI',
                                  '% extraction employ.','ln(county NR GDP ($1M))',
                                  'Democratic president','Democratic congress',   'Public ideology' ,
-                                 '% dem. vote share','LCV annual score','Dem. rep.', 'Unemployment %',
-                                 "% dem. vote x unemp. %",'LCV annual x unemp. %','Dem. rep. x unemp. %')
+                                 'LCV annual score', 'Unemployment %',
+                                 'LCV annual x unemp. %')
 
 coef_results$coef <- fct_rev(coef_results$coef)
 coef_results$sig <- (!(coef_results$`0.025quant`<0 & coef_results$`0.975quant`>0)) + 0
@@ -141,8 +143,8 @@ base_coefs = coef_results[specification%in%'Annual LCV score',]
 extract_coefs = coef_results
 
 
-variations = c('LCV','Dem. rep','% dem')
-varnames = c('LCV','demRep','demVote')
+variations = c('LCV')
+varnames = c('LCV')
 
 lapply(seq_along(variations),function(x) {
   print(x)
@@ -166,11 +168,8 @@ lapply(seq_along(variations),function(x) {
   ggtitle('Extractive projects') +
   NULL
 if(varnames[x]=='LCV'){
-ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figure3_coefplot_extraction_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
+ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/figures_in_paper/figure3_coefplot_extraction_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
 }
-  if(varnames[x]!='LCV'){
-    ggsave(extract_comp,filename = paste0('policypolitics/tables_figures/figures/coefplot_extraction_',varnames[x],'.tiff'),dpi = 350,width = 7.5,height = 8,units = 'in')
-  }
   })
 
 
@@ -190,7 +189,7 @@ forest_re =  ggplot(data = temp) +
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by local administrative unit',subtitle = 'Extractive projects') 
-ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_forest_extraction.tiff',width = 8,height = 12,units = 'in',dpi = 350)
+ggsave(forest_re,filename = 'policypolitics/tables_figures/figures/extra_figures/random_intercepts_forest_extraction.tiff',width = 8,height = 12,units = 'in',dpi = 350)
 
 
 temp = rbind(mod_list[[2]]$summary.random$u_congress_id %>% mutate(group = '# projects'),
@@ -204,16 +203,12 @@ temp$cid = congress_index$congress_id[match(temp$ID,congress_index$index)]
   theme(axis.title = element_blank(),legend.position = 'bottom',legend.direction = 'horizontal',axis.ticks = element_blank()) + 
   scale_y_continuous(name = '95% credible interval') + 
   ggtitle('Modeled intercepts by Congress',subtitle = 'Extractive projects') )
-ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/random_intercepts_congress_extraction.tiff',width = 4,height = 6,units = 'in',dpi = 350)
+ggsave(congress_re,filename = 'policypolitics/tables_figures/figures/extra_figures/random_intercepts_congress_extraction.tiff',width = 4,height = 6,units = 'in',dpi = 350)
 
 
 temp_tab = (round(do.call(rbind,list(
 mod_list[[1]]$summary.hyperpar[,c(1,3,5)],
-mod_list[[2]]$summary.hyperpar[,c(1,3,5)],
-mod_list[[3]]$summary.hyperpar[,c(1,3,5)],
-mod_list[[4]]$summary.hyperpar[,c(1,3,5)],
-mod_list[[5]]$summary.hyperpar[,c(1,3,5)],
-mod_list[[6]]$summary.hyperpar[,c(1,3,5)])),2))
+mod_list[[2]]$summary.hyperpar[,c(1,3,5)])),2))
 
 temp_coef_table = temp_tab
 temp_coef_table
@@ -236,7 +231,7 @@ remboth$hyper <- gsub('(u|y)_region_id','region latent effect',remboth$hyper)
 rem_table = tableHTML(remboth,rownames = F,
           headers = c('hyperparameter','Model 1 (baseline)','Model 2 (LCV x % unemp.)'))
 
-write_tableHTML(rem_table, file = 'policypolitics/tables_figures/tables/tableB3_random_effect_estimates.html')
+write_tableHTML(rem_table, file = 'policypolitics/tables_figures/tables/tables_in_paper/tableA3_random_effect_estimates.html')
 
 
 

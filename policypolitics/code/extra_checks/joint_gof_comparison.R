@@ -26,7 +26,7 @@ albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y
 admin_districts <- readRDS('policypolitics/prepped_inputs//admin_units_clean.RDS')
 admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
 
-fs = readRDS('policypolitics/prepped_inputs/fs_PALS_cleaned_project_datatable.RDS')
+fs = readRDS('policypolitics/raw_curated_inputs/fs_PALS_cleaned_project_datatable.RDS')
 
 #system('ln -s ~/Box/manitou/output/ ~/Documents/Github/manitou')
 #system('ln -s ~/Box/manitou/input/ ~/Documents/Github/manitou')
@@ -80,14 +80,6 @@ nf$USFS_REGION = admin_districts$REGION[match(nf$FOREST_ID,admin_districts$FORES
 library(zoo)
 
 center_continuous_cov = TRUE
-
-
-#BASE RATIO: remove nominate_dim1 & all macro variables. remove L1_TOTAL_EA_EIS based on Manny's comments? your call
-#Model 2: add macro variables (there are 4 of them -- demPres + demCongress  + ComLCV + ChairLCV
-#Model 3: no macro variables, interact LCV_annual X percentD_H (edited) 
-#Model 4: no macros, no interaction, interact democrat X Count_EorT_Species, democrat X Wilderness_Prop (edited) 
-#Model 5: same as above, but instead of democrat use LCV_annual
-#Model 6: same as above, but instead use percentD_H
 
 if(period_type == 'congress'){
   all_combos = expand.grid(FOREST_ID = sort(unique(admin_districts$FOREST_ID)),congress = 109:115,DECISION_TYPE = c('CE','EA','EIS'))
@@ -295,7 +287,7 @@ idat$y_Wilderness_Perc = c(rep(NA,narep),scale(temp_dt$Wilderness_Perc))
 idat$y_Burned_Perc_Past5yrs = c(rep(NA,narep),scale(temp_dt$Burned_Perc_Past5yrs)) 
 idat$y_Ln_AVERAGE_YEARLY_VISITS = c(rep(NA,narep),scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS)) 
 idat$y_Count_EorT_Species= c(rep(NA,narep),scale(temp_dt$Count_EorT_Species)) 
-idat$y_percentD_H = c(rep(NA,narep),scale(temp_dt$percentD_H)) 
+
 
 idat$y_LCV_annual= c(rep(NA,narep),scale(temp_dt$LCV_annual))
 idat$y_raw_LCV_annual= c(rep(NA,narep),temp_dt$LCV_annual)
@@ -323,17 +315,15 @@ idat$u_Wilderness_Perc = c(scale(temp_dt$Wilderness_Perc),rep(NA,narep))
 idat$u_Burned_Perc_Past5yrs = c(scale(temp_dt$Burned_Perc_Past5yrs),rep(NA,narep)) 
 idat$u_Ln_AVERAGE_YEARLY_VISITS = c(scale(temp_dt$Ln_AVERAGE_YEARLY_VISITS),rep(NA,narep)) 
 idat$u_Count_EorT_Species= c(scale(temp_dt$Count_EorT_Species),rep(NA,narep)) 
-idat$u_percentD_H = c(scale(temp_dt$percentD_H),rep(NA,narep)) 
+
 
 idat$u_LCV_annual= c(scale(temp_dt$LCV_annual),rep(NA,narep)) 
 idat$u_raw_LCV_annual= c(temp_dt$LCV_annual,rep(NA,narep)) 
 idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
-idat$u_democrat = c(temp_dt$democrat,rep(NA,narep))
-idat$y_democrat = c(rep(NA,narep),temp_dt$democrat)
+
 idat$u_demPres = c(temp_dt$demPres,rep(NA,narep))
 idat$u_demCongress = c(temp_dt$demCongress,rep(NA,narep))
-idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
-idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
+
 idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
 idat$n = n;idat$y = y;idat$u = u;
 
@@ -445,14 +435,14 @@ mod.separate.y = inla(formula = update.formula(form_separate_y,.~. -mu.y + 1),
                       control.predictor=list(compute=TRUE),
                       control.results = cres)
 
-
-fwrite(data.table(rbind(joint = getfit(mod.joint), 
-      joint.shared = getfit(mod.joint.shared), 
-      shared.only = getfit(mod.shared.only),
-      separate = rbind(getfit(mod.separate.u),
-            getfit(mod.separate.y)))[c(1, 3, 5,7, 2, 4, 6,8),],keep.rownames = T),
-      file = paste0('policypolitics/tables_figures/tables/variance_gof_',mod,'.csv'))
-
+# 
+# fwrite(data.table(rbind(joint = getfit(mod.joint), 
+#       joint.shared = getfit(mod.joint.shared), 
+#       shared.only = getfit(mod.shared.only),
+#       separate = rbind(getfit(mod.separate.u),
+#             getfit(mod.separate.y)))[c(1, 3, 5,7, 2, 4, 6,8),],keep.rownames = T),
+#       file = paste0('policypolitics/tables_figures/tables/extra_tables/variance_gof_',mod,'.csv'))
+# 
 
 go_dt = data.table(rbind(joint = getfit(mod.joint), 
       joint.shared = getfit(mod.joint.shared), 
@@ -466,7 +456,7 @@ go_dt$outcome = rep(c('# projects','CE ratio'),4)
 go_dt = go_dt[order(outcome,mod),]
 htmlTable(round(go_dt[order(outcome,mod),.(dic,waic,cpo)]),n.rgroup = 4,
           rnames = go_dt$mod,rowlabel = 'specification',rgroup = c('# projects','CE ratio'),
-          file = 'policypolitics/tables_figures/tables/tableB1_jointlikelihood_gof.html')
+          file = 'policypolitics/tables_figures/tables/tables_in_paper/tableA1_jointlikelihood_gof.html')
 
 
 

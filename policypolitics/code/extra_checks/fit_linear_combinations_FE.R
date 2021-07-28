@@ -1,14 +1,15 @@
-#setwd('../manitou')
-if(!require(data.table)){install.packages('data.table');require(data.table)}
-if(!require(tidyverse)){install.packages('tidyverse');require(tidyverse)}
-if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE);require(INLA)}
-if(!require(INLAutils)){devtools::install_github('timcdlucas/INLAutils');require(INLAutils)}
-if(!require(matrixStats)){install.packages('matrixStats');require(matrixStats)}
+
+
+#install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
+if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
+
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','aod','MASS')
+not_installed = packages[!packages %in% installed.packages()[,'Package']]
+if(length(not_installed)>0){lapply(not_installed,install.packages)}
+lapply(packages,require,character.only = T)
 
 # From github
-library(devtools)
 
-library(ggthemes)
 empty_list = data.table()
 locs = 'policypolitics/model_objects/models_Type_Purpose_Extractive_FE.RDS'
   
@@ -30,8 +31,6 @@ cres <- list(return.marginals.predictor = FALSE,
              return.marginals.random = FALSE)
 
 
-require(MASS)
-require(aod)
 idat = model_list[[1]]$.args$data
 
 nb_mod = glm.nb(u~  u_Unemp_Rate + u_Perc_Extraction_Employ + u_ln_County_naturalresource_GDP_1M +
@@ -193,14 +192,9 @@ for(i in seq_along(intervars)){
 
 #empty_list = fread('output/policypolitics/interaction_results.csv')
 
-#qvals = c('0.05','0.25','0.5','0.75','0.95')
+
 qvals_LCV = c('0.05','0.95')
 qval_labels_lcv = c('~0','~95')
-qvals_demVS = c('0.05','0.95')
-qval_labels_dmVS = c('15%','65%')
-qvals_Dem = c(0,1)
-qval_labels_DEM = c('Republican','Democrat')
-
 
 ext_dt = empty_list
 ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
@@ -208,14 +202,11 @@ ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 
 ext_dt_lcv_linear = ext_dt[form == 'form0',]
 ext_dt_lcv_interact = ext_dt[form == 'form0x',]
-ext_dt_dem = ext_dt[!is.na(percentD_H)&x2_quantile %in% qvals_demVS&form == 'form1x',]
-ext_dt_rep = ext_dt[!is.na(democrat)&x2_quantile %in% qvals_Dem & form == 'form2x',]
-
 
 require(htmlTable)
 
 htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean,3),`0.025quant` = round(`0.025quant`,3),`0.975quant` = round(`0.975quant`,3))],
-          file = 'policypolitics/tables_figures/tables/interaction_combination_values_FE.html')
+          file = 'policypolitics/tables_figures/tables/extra_tables/interaction_combination_values_FE.html')
 
 
 ((gg_lcv_vs_unemp_extraction_interact_count = ggplot(data = ext_dt_lcv_interact[group=='Project count'&!grepl('alt',form)][order(x1_quantile)],
@@ -239,13 +230,9 @@ htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean
   theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
                      legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25)))))
 
-require(gridExtra)
 
-require(sjPlot)
 ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 350,width = 6,height = 4.5, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_lcv_vs_unemp_FE.tiff'))
-
-
+       filename = paste0('policypolitics/tables_figures/figures/figures_in_paper/figureA4_interaction_extraction_projcount_lcv_vs_unemp_FE.tiff'))
 
 
 (gg_lcv_vs_unemp_extraction_interact_ce = ggplot(data = ext_dt_lcv_interact[group=="CE/total NEPA analyses"&!grepl('alt',form),][order(x1_quantile),],
@@ -268,95 +255,5 @@ ggsave(gg_lcv_vs_unemp_extraction_interact_count,dpi = 350,width = 6,height = 4.
 
 
 ggsave(gg_lcv_vs_unemp_extraction_interact_ce,dpi = 350,width = 6,height = 4.5, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_lcv_vs_unemp_FE.tiff'))
-
-grid.arrange(gg_lcv_vs_unemp_extraction_interact_count,gg_lcv_vs_unemp_extraction_interact_ce,ncol = 2)
-
-
-
-(gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=='Project count',][order(x1_quantile)],
-                                    aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-                                        fill = as.factor(x2_quantile),
-                                        ymax = `0.975quant`,group = as.factor(x2_quantile),
-                                        col = as.factor(x2_quantile)))  + 
-  facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-    geom_ribbon(aes(fill = as.factor(x2_quantile)),alpha = 0.2,lty= 2)+
-    geom_path(aes(col = as.factor(x2_quantile)))+
-    scale_fill_colorblind()+
-    
-  scale_x_continuous(name = paste('% unemployment quantile')) +
-  scale_y_continuous(name = '95% credible interval')+
- # scale_color_viridis_d(name = 'dem. vote share quantile',option = 'D',labels=qval_labels_dmVS) + 
-  scale_colour_colorblind(name = 'dem. vote share',labels=qval_labels_dmVS) + 
-  guides(fill = F) + 
-  ggtitle('# extractive projects',subtitle= 'Dem. vote share x unemployment %')+
-  theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-                     legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_percentD_H_vs_unemp_FE.tiff'))
-
-
-
-
-(gg_percentD_H_vs_unemp_extraction = ggplot(data = ext_dt_dem[group=="CE/total NEPA analyses",][order(x1_quantile)],
-                                           aes(x = x1_quantile,y = mean,ymin = `0.025quant`,fill = as.factor(x2_quantile),
-                                               ymax = `0.975quant`,group = as.factor(x2_quantile),
-                                               col = as.factor(x2_quantile)))  + 
-    geom_ribbon(aes(fill = as.factor(x2_quantile)),alpha = 0.2,lty= 2)+
-    geom_path(aes(col = as.factor(x2_quantile)))+
-    scale_fill_colorblind()+
-    
-  facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-  scale_x_continuous(name = paste('% unemployment quantile')) +
-  scale_y_continuous(name = '95% credible interval')+
-  scale_colour_colorblind(name = 'dem. vote share',labels=qval_labels_dmVS) + 
-  guides(fill = F) + 
-  ggtitle('CEs/total NEPA analyses',subtitle= 'Dem. vote share x unemployment %')+
-  theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-                     legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_percentD_H_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_percentD_H_vs_unemp_FE.tiff'))
-
-
-(gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=='Project count',][order(x1_quantile),],
-                                           aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-                                               fill=as.factor(x2_quantile),
-                                               ymax = `0.975quant`,group = as.factor(x2_quantile),
-                                               col = as.factor(x2_quantile)))  + 
-  facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-    geom_ribbon(aes(fill = as.factor(x2_quantile)),alpha = 0.2,lty= 2)+
-    geom_path(aes(col = as.factor(x2_quantile)))+
-    scale_fill_colorblind()+
-  scale_x_continuous(name = paste('% unemployment quantile')) +
-  scale_y_continuous(name = '95% credible interval')+
-  scale_colour_colorblind(name = 'Representative',labels=qval_labels_DEM) + 
-  guides(fill = F) + 
-  ggtitle('# extractive projects',subtitle ='Dem. rep. x unemployment %')+
-  theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-                     legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_projcount_demRep_vs_unemp_extraction_FE.tiff'))
-
-
-
-
-(gg_demRep_vs_unemp_extraction = ggplot(data = ext_dt_rep[group=="CE/total NEPA analyses",][order(x1_quantile),],
-                                       aes(x = x1_quantile,y = mean,ymin = `0.025quant`,
-                                           fill = as.factor(sig),
-                                           ymax = `0.975quant`,group = as.factor(x2_quantile),
-                                           col = as.factor(x2_quantile)))  + 
-  facet_wrap(~ group, scales = 'free_y',ncol = 2) + 
-    geom_ribbon(aes(fill = as.factor(x2_quantile)),alpha = 0.2,lty= 2)+
-    geom_path(aes(col = as.factor(x2_quantile)))+
-    scale_fill_colorblind()+
-    scale_x_continuous(name = paste('% unemployment quantile')) +
-    scale_y_continuous(name = '95% credible interval')+
-  scale_colour_colorblind(name = 'Representative',labels=qval_labels_DEM) + 
-  guides(fill = F) + 
-  ggtitle('CEs/total NEPA analyses',subtitle ='Dem. rep. x unemployment %')+
-  theme_bw() + theme(legend.position = c(0.2,0.15),legend.direction = 'vertical',
-                     legend.title=element_text(size = 10),legend.background = element_rect(fill = alpha('white',0.25))))
-ggsave(gg_demRep_vs_unemp_extraction,dpi = 350,width = 5,height = 4, units = 'in',
-       filename = paste0('policypolitics/tables_figures/figures/interaction_extraction_CEratio_demRep_vs_unemp_extraction_FE.tiff'))
-
+       filename = paste0('policypolitics/tables_figures/figures/figures_in_paper/figureA5_interaction_extraction_CEratio_lcv_vs_unemp_FE.tiff'))
 

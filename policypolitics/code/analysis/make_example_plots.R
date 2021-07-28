@@ -117,7 +117,7 @@ NULL
     )
 
 
-ggsave(plot = gg_rep,filename = 'policypolitics/tables_figures/figures/figure1_oregon_lcv_annual.tiff',width=7.5,height=6,units ='in',dpi = 500)
+ggsave(plot = gg_rep,filename = 'policypolitics/tables_figures/figures/figures_in_paper/figure1_oregon_lcv_annual.tiff',width=7.5,height=6,units ='in',dpi = 500)
 
 start_year = 2005
 end_year = 2018
@@ -176,7 +176,7 @@ g3 = ggplot(data = input_data,aes(x = Tot_Proj,y = CE)) + geom_jitter(pch = 21) 
   scale_y_continuous(name = '# CEs issued') + 
   ggtitle('CEs vs. total extractive projects')
 library(gridExtra)
-ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'policypolitics/tables_figures/figures/figure2_DV_plot.tiff',width = 8,units = 'in',height= 8,dpi=350)
+ggsave(grid.arrange(g1,g2,g3,ncol = 2),filename = 'policypolitics/tables_figures/figures/figures_in_paper/figure2_DV_plot.tiff',width = 8,units = 'in',height= 8,dpi=350)
 
 
 

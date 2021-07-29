@@ -3,7 +3,7 @@
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
 
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','aod','MASS')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','aod','MASS','htmlTable')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -203,7 +203,6 @@ ext_dt$sig = ifelse(ext_dt$`0.025quant`<0&ext_dt$`0.975quant`>0,0,1)
 ext_dt_lcv_linear = ext_dt[form == 'form0',]
 ext_dt_lcv_interact = ext_dt[form == 'form0x',]
 
-require(htmlTable)
 
 htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean,3),`0.025quant` = round(`0.025quant`,3),`0.975quant` = round(`0.975quant`,3))],
           file = 'policypolitics/tables_figures/tables/extra_tables/interaction_combination_values_FE.html')

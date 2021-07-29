@@ -148,7 +148,6 @@ form_separate_y = update.formula(y_base,.~.+
   f(y_region_id,model = 'iid',hyper = pc.prec.used[2]) +
   f(y_state_id,model = 'iid',hyper = pc.prec.used[2]))
 
-
   form_joint = update.formula(combo_base,.~.+
     f(u_forest_id,model = 'iid',hyper = pc.prec.used[1]) + 
     f(u_congress_id,model = 'iid',hyper = pc.prec.used[1]) + 
@@ -179,10 +178,10 @@ form_separate_y = update.formula(y_base,.~.+
                                       f(u_congress_id,model = 'iid',hyper = pc.prec.used[1],values = congress_values) + 
                                       f(u_region_id, model = 'iid',hyper = pc.prec.used[1],values = region_values) + 
                                       f(u_state_id, model = 'iid',hyper = pc.prec.used[1],values = state_values) +
-                                      f(y_forest_id,copy = 'u_forest_id',fixed = F,hyper = list(theta=bprior)) +
-                                      f(y_congress_id,copy = 'u_congress_id',fixed = F,hyper = list(theta=bprior))+
-                                      f(y_region_id,copy = 'u_region_id',fixed = F,hyper = list(theta=bprior)) +
-                                      f(y_state_id,copy = 'u_state_id',fixed = F,hyper = list(theta=bprior)))
+                                      f(uc_forest_id,copy = 'u_forest_id',fixed = F,hyper = list(theta=bprior)) +
+                                      f(uc_congress_id,copy = 'u_congress_id',fixed = F,hyper = list(theta=bprior))+
+                                      f(uc_region_id,copy = 'u_region_id',fixed = F,hyper = list(theta=bprior)) +
+                                      f(uc_state_id,copy = 'u_state_id',fixed = F,hyper = list(theta=bprior)))
   
   
                                    
@@ -372,24 +371,26 @@ cres <- list(return.marginals.predictor = FALSE,
 
 idat$u_forest_id <- as.factor(forest_index$index[match(idat$u_forest_id,forest_index$forest_id)])
 idat$y_forest_id <- as.factor(forest_index$index[match(idat$y_forest_id,forest_index$forest_id)] + nrow(forest_index))
-idat$uc_forest_id <-  idat$u_forest_id
+idat$uc_forest_id <-  as.factor(forest_index$index[match(idat$uc_forest_id,forest_index$forest_id)])
+                                
 idat$forest_values = as.factor(unique(c(levels(idat$u_forest_id),levels(idat$y_forest_id))))
 
 idat$u_region_id <- as.factor(region_index$index[match(formatC(idat$u_region_id,width = 2,flag = 0),region_index$region_id)])
 idat$y_region_id <- as.factor(region_index$index[match(formatC(idat$y_region_id,width = 2,flag = 0),region_index$region_id)] + nrow(region_index))
-idat$uc_region_id <-  idat$u_region_id
+idat$uc_region_id <-   as.factor(region_index$index[match(formatC(idat$uc_region_id,width = 2,flag = 0),region_index$region_id)])
+
 idat$region_values = as.factor(unique(c(levels(idat$u_region_id),levels(idat$y_region_id))))
 
 
 idat$u_state_id <- as.factor(state_index$index[match(idat$u_state_id,state_index$state_id)])
 idat$y_state_id <- as.factor(state_index$index[match(idat$y_state_id,state_index$state_id)] + nrow(state_index))
-idat$uc_state_id <-  idat$u_state_id
+idat$uc_state_id <-  as.factor(state_index$index[match(idat$uc_state_id,state_index$state_id)])
 idat$state_values = as.factor(unique(c(levels(idat$u_state_id),levels(idat$y_state_id))))
 
 
 idat$u_congress_id <- as.factor(congress_index$index[match(idat$u_congress_id,congress_index$congress_id)])
 idat$y_congress_id <- as.factor(congress_index$index[match(idat$y_congress_id,congress_index$congress_id)] + nrow(congress_index))
-idat$uc_congress_id <-  idat$u_congress_id
+idat$uc_congress_id <-   as.factor(congress_index$index[match(idat$uc_congress_id,congress_index$congress_id)])
 idat$congress_values = as.factor(unique(c(levels(idat$u_congress_id),levels(idat$y_congress_id))))
 
 

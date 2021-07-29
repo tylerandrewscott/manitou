@@ -76,5 +76,7 @@ This project is licensed under the MIT License - see the LICENSE.md file for det
 
 Inspiration, code snippets, etc.
 * [R-INLA](https://www.r-inla.org/)
-* [Gomez-Rubio](https://becarioprecario.bitbucket.io/inla-gitbook/)
+* [Gomez-Rubio INLA bitbucket book](https://becarioprecario.bitbucket.io/inla-gitbook/)
 * [USFS data](https://conservancy.umn.edu/handle/11299/211669)
+* [Krainski et al. INLA bitbucket book]
+(https://becarioprecario.bitbucket.io/spde-gitbook/)

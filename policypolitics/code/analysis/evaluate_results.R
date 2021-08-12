@@ -2,7 +2,7 @@
 
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
 
-packages = c('data.table','stringr','forcats','tidyverse','ggthemes','ggstance','scales','R2HTML','sf')
+packages = c('data.table','stringr','forcats','tidyverse','ggthemes','ggstance','scales','R2HTML','sf', 'tableHTML') 
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)

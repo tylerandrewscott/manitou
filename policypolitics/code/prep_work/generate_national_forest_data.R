@@ -17,7 +17,7 @@ admin_districts <- st_transform(admin_districts,crs = st_crs(albersNA))
 admin_districts$FORESTORGC = as.character(admin_districts$FORESTORGC)
 admin_districts$FOREST_ID = admin_districts$FORESTORGC
 admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
-#admin_districts$FOREST_ID = formatC(admin_districts$FORESTORGC,width=4,flag = 0)
+
 congress_ids = data.table(congress = rep(101:116,each=2),CALENDAR_YEAR = 1989:2020)
 # make every forest/year combination
 tdt = expand.grid(sort(unique(as.character(admin_districts$FOREST_ID))),first_year:last_year)
@@ -200,17 +200,6 @@ setkey(temp_dt,FOREST_ID,CALENDAR_YEAR)
 temp_dt = left_join(temp_dt,forest_weighted_econ)
 temp_dt = data.table(temp_dt)
 
-# library(readxl)
-# receipts = data.table(read_excel('input/usfs_internal_data/USFSGrossReceipts_cleaned.xlsx',skip = 3))
-# receipts$`National Forest Code` = formatC(receipts$`National Forest Code`,width = 4,flag = 0)
-# #receipts = receipts[Year>=2002,]
-# setnames(receipts,c("National Forest Code","Year"),c('FOREST_ID',"CALENDAR_YEAR"))
-# 
-# receipts = receipts[,.(CALENDAR_YEAR,FOREST_ID,`Itemp_dtlation Adjusted Class1 - Timber`,`Itemp_dtlation Adjusted Class2 - Grazing East`,`Itemp_dtlation Adjusted Class8 - Grazing West`,
-#                        `Itemp_dtlation Adjusted Class3 - Land Use`,`Itemp_dtlation Adjusted Class7 - Recreation User Fees`,`Itemp_dtlation Adjusted Class6 - Minerals`,
-#                        `Itemp_dtlation Adjusted Class4 - Recreation Special Uses`, `Itemp_dtlation Adjusted Class5 - Power`,`Itemp_dtlation Adjusted Total temp_dtF`)]
-# 
-# temp_dt = data.table(left_join(temp_dt,receipts))
 
 ###
 ### load timber sales data from google sheet
@@ -256,7 +245,7 @@ wui$Prop_WUI_Housing = wui$WUI_Housing/(wui$NON_WUI_Housing+wui$WUI_Housing)
 county_wui_over = data.table(left_join(wui,county_over))
 
 wui_housing_units = county_wui_over[,lapply(.SD,weighted.mean,w=prop_in_county,na.rm=T), by=.(FOREST_ID),.SDcols = 'Prop_WUI_Housing']
-#setnames(wui_housing_units,'V1','WUI_Housing_Units')
+
 
 temp_dt = data.table(left_join(temp_dt,wui_housing_units))
 
@@ -286,8 +275,6 @@ house_dt = data.table(left_join(house,house_overs))
 house_dt$Prop_Overlap = round(house_dt$Prop_Overlap,2)
 house_dt = house_dt[house_dt$Prop_Overlap>0,] 
 pol_cols = c('LCV_annual', 'demPres', 'demCongress', 'mrp_mean') 
-# pol_cols = c("LCV_annual","LCV_lifetime","democrat","nominate_dim1",'nominate_dim2','demPres','demCongress','agChairLCV','agChairDW1','nrChairDW1','nrChairLCV','agComLCV','agComDW1','nrComLCV','nrComDW1','mrp_mean')
-
 
 forest_house_values = house_dt[,lapply(.SD,weighted.mean,w=Prop_Overlap,na.rm=T), by=.(FOREST_ID,CALENDAR_YEAR,congress),.SDcols = pol_cols]
 forest_house_values$CALENDAR_YEAR = as.numeric(forest_house_values$CALENDAR_YEAR) # 1672, now 1665 (not really sure why that would happen)
@@ -334,11 +321,7 @@ temp_dt$Burned_Area_Past5yrs = total_burn_area_past5yrs
 temp_dt$Burned_Prop_Past5yrs = as.numeric(temp_dt$Burned_Area_Past5yrs/temp_dt$GIS_Area)
 
 ###### wilderness area overlay
-#wilderness_area_url = 'http://enterprisecontentnew-usfs.hub.arcgis.com/datasets/70dac7184e804326870fd3fdb9b52047_0.geojson?outSR=%7B%22latestWkid%22:3857,%22wkid%22:102100%7D'
-#wilderness_area <- st_read(wilderness_area_url)
-#wilderness_area <- st_transform(wilderness_area,crs = st_crs(albersNA))
-#wilderness_area  <- st_make_valid(wilderness_area)
-#wilderness_area$WID <- wilderness_area$AREAID
+
 desig_years_url = 'https://www.wilderness.net/GIS/Wilderness_Areas.zip'
 tf = tempfile(tmpdir=td, fileext=".zip")
 download.file(desig_years_url, tf)
@@ -346,7 +329,6 @@ fname = unzip(tf, list=TRUE)
 unzip(tf, files=fname$Name, exdir=td, overwrite=TRUE)
 fpath = file.path(td, grep('shp$',fname$Name,value=T))
 desig_years <- st_read(fpath)
-#desig_years_fs = desig_years[desig_years$Agency=='FS',]
 desig_years$WID <- formatC(desig_years$WID,width = 3,flag = 0)
 desig_years <- st_transform(desig_years,crs = st_crs(albersNA))
 desig_years <- st_make_valid(desig_years)
@@ -627,7 +609,7 @@ temp_dt$Perc_Extraction_Employ = temp_dt$Prop_Extraction_Employ*100
 temp_dt$Prop_Outdoor_Employ = temp_dt$Prop_HuntingFishing + temp_dt$Prop_Recreation
 temp_dt$Wilderness_Prop = as.numeric(temp_dt$Wilderness_Prop)
 temp_dt$Wilderness_Perc = temp_dt$Wilderness_Prop * 100
-#temp_dt$Limited_Use_Prop = as.numeric(temp_dt$Limited_Use_Prop)
+
 temp_dt$Prop_WUI_Housing = as.numeric(temp_dt$Prop_WUI_Housing)
 temp_dt$Perc_WUI_Housing = 100 * temp_dt$Prop_WUI_Housing
 temp_dt$Burned_Prop_Past5yrs = as.numeric(temp_dt$Burned_Prop_Past5yrs)
@@ -635,12 +617,9 @@ temp_dt$Burned_Perc_Past5yrs = temp_dt$Burned_Prop_Past5yrs * 100
 temp_dt$ACRES = admin_districts$GIS_ACRES[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
 temp_dt$demCongress[temp_dt$demCongress==2] <- 0
 temp_dt$congress = as.character(temp_dt$congress)
-#temp_dt$nominate_dim1  = temp_dt$nominate_dim1  * -1
-#temp_dt$nominate_dim2  = temp_dt$nominate_dim2  * -1 
+
 temp_dt$mrp_mean = temp_dt$mrp_mean * -1
 
-#temp_dt$ComLCV = (temp_dt$nrComLCV+temp_dt$agComLCV)/2 
-#temp_dt$ChairLCV = (temp_dt$nrChairLCV + temp_dt$agChairLCV)/2 
 
 temp_dt$Ln_ACRES = log(temp_dt$ACRES)
 temp_dt$Ln_AVERAGE_YEARLY_VISITS = log(temp_dt$Average_Yearly_Visits)

@@ -450,7 +450,7 @@ res$prior = fct_recode(res$prior,'PC prior, sd(resid.)'='pc.prec.used',
 
 res$prior <- fct_relevel(res$prior, "Uniform"  , "Half normal","Half t","Half Cauchy",
                             "Log-gamma (0.5)" , "Log-gamma (1)" , "Log-gamma (5)"   ,       
-                            "PC prior (1)" ,  "PC prior (3)" , "PC prior (5)" ,   "PC prior (10)" , "PC prior, sd(residuals)" )
+                            "PC prior (1)" ,  "PC prior (3)" , "PC prior (5)" ,   "PC prior (10)" , "PC prior, sd(resid.)" )
 
 
 res$coef = as.factor(res$coef)

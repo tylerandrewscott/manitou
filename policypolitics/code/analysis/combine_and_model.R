@@ -1,9 +1,10 @@
 
+options(timeout=400)
 
 #install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/testing"), dep=TRUE)
 if(!require(INLA)){install.packages("INLA", repos=c(getOption("repos"), INLA="https://inla.r-inla-download.org/R/stable"), dep=TRUE)}
 
-packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','aod','MASS')
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','tigris','lubridate','aod','MASS', 'stargazer', 'ggcorrplot')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
@@ -179,13 +180,11 @@ swap_names = fct_recode(swap_names,
                         'Public ideology' = 'mrp_mean',
                         '# listed species' = 'Count_EorT_Species','ln(forest acreage)'='Ln_ACRES',
                         'ln(Resource receipts, last 4 yrs)' = 'ln_Receipts_Extraction_1M_P4',
-                        'ln(Recreation receipts, last 4 yrs)' = 'ln_Receipts_Recreation_1M_P4',
                         '% burned last 5 years'='Burned_Perc_Past5yrs','LCV annual score'='LCV_annual',
                         'Unemployment %' = 'Unemp_Rate','% extraction employ.' = 'Perc_Extraction_Employ',
                         'ln(yearly visitation)' = 'Ln_AVERAGE_YEARLY_VISITS','ln($1M county NR GDP)' = 'ln_County_naturalresource_GDP_1M',
                         'Democratic president' = 'demPres','Democratic congress' = 'demCongress',
-                        'LCV annual x unemp. %' = 'Unemp_Rate:LCV_annual',
-                        'House committee LCV' = 'ComLCV','House chair LCV' = 'ChairLCV')
+                        'LCV annual x unemp. %' = 'Unemp_Rate:LCV_annual')
 colnames(coef_vals) <- as.character(swap_names)
 
 
@@ -288,8 +287,8 @@ idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
 
 idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
 idat$y_demCongress = c(rep(NA,narep),temp_dt$demCongress)
-idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
-idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
+#idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV)) 
+#idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
 idat$y_Perc_WUI_Housing = c(rep(NA,narep),scale(temp_dt$Perc_WUI_Housing))
 
 idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))
@@ -312,8 +311,8 @@ idat$u_raw_LCV_annual= c(temp_dt$LCV_annual,rep(NA,narep))
 idat$u_mrp_mean = c(scale(temp_dt$mrp_mean),rep(NA,narep)) 
 idat$u_demPres = c(temp_dt$demPres,rep(NA,narep))
 idat$u_demCongress = c(temp_dt$demCongress,rep(NA,narep))
-idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep))
-idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
+#idat$u_ComLCV = c(scale(temp_dt$ComLCV),rep(NA,narep)) # 
+#idat$u_ChairLCV = c(scale(temp_dt$ChairLCV),rep(NA,narep))
 idat$u_ln_County_naturalresource_GDP_1M = c(scale(temp_dt$ln_County_naturalresource_GDP_1M),rep(NA,narep))
 idat$n = n;idat$y = y;idat$u = u;
 

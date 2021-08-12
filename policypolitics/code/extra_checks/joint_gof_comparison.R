@@ -294,8 +294,8 @@ idat$y_mrp_mean= c(rep(NA,narep),scale(temp_dt$mrp_mean))
 
 idat$y_demPres = c(rep(NA,narep),temp_dt$demPres)
 idat$y_demCongress = c(rep(NA,narep),temp_dt$demCongress)
-idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
-idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
+#idat$y_ComLCV = c(rep(NA,narep),scale(temp_dt$ComLCV))
+#idat$y_ChairLCV = c(rep(NA,narep),scale(temp_dt$ChairLCV))
 idat$y_Perc_WUI_Housing = c(rep(NA,narep),scale(temp_dt$Perc_WUI_Housing))
 
 idat$y_ln_County_naturalresource_GDP_1M = c(rep(NA,narep),scale(temp_dt$ln_County_naturalresource_GDP_1M))

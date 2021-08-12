@@ -181,7 +181,7 @@ ext_dt_lcv_linear = ext_dt[form == 'form0',]
 ext_dt_lcv_interact = ext_dt[form == 'form0x',]
 
 
-
+# x1_quantile = unemployment, x2_quantile = LCV
 htmlTable(ext_dt_lcv_interact[,.(group,x1_quantile,x2_quantile,mean = round(mean,3),`0.025quant` = round(`0.025quant`,3),`0.975quant` = round(`0.975quant`,3))],
           file = 'policypolitics/tables_figures/tables/extra_tables/interaction_combination_values.html')
 

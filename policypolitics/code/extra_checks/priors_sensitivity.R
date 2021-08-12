@@ -74,6 +74,41 @@ durations = fs[,list(mean(mdy(`DECISION SIGNED`) - mdy(`INITIATION DATE`),na.rm=
 names(durations) <- c('Type','mean','median')
 
 
+
+nf$Num_Eco_Sections[nf$Num_Eco_Sections==0] <- 1
+nf = nf[order(FOREST_ID,get(period_type)),]
+nf = nf[, zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
+
+# nf$Prop_Extraction_Employ = nf$Prop_Forestry_Employ + nf$Prop_Mining_Employ  
+#  nf$Perc_Extraction_Employ = nf$Prop_Extraction_Employ*100
+# nf$Prop_Outdoor_Employ = nf$Prop_HuntingFishing + nf$Prop_Recreation 
+# nf$Wilderness_Prop = as.numeric(nf$Wilderness_Prop)
+# nf$Wilderness_Perc = nf$Wilderness_Prop * 100
+# nf$Limited_Use_Prop = as.numeric(nf$Limited_Use_Prop)
+# nf$Prop_WUI_Housing = as.numeric(nf$Prop_WUI_Housing)
+# nf$Perc_WUI_Housing = 100 * nf$Prop_WUI_Housing
+# nf$Burned_Prop_Past5yrs = as.numeric(nf$Burned_Prop_Past5yrs)
+# nf$Burned_Perc_Past5yrs = nf$Burned_Prop_Past5yrs * 100
+# nf$ACRES = admin_districts$GIS_ACRES[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
+# nf$demCongress[nf$demCongress==2] <- 0
+# nf$congress = as.character(nf$congress)
+
+# nf$mrp_mean = nf$mrp_mean * -1
+
+# nf$Ln_ACRES = log(nf$ACRES)
+# nf$Ln_AVERAGE_YEARLY_VISITS = log(nf$Average_Yearly_Visits) 
+
+
+nf$USFS_REGION = admin_districts$REGION[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
+
+library(zoo)
+nf = nf[order(FOREST_ID,congress),]
+nf = nf[order(FOREST_ID,congress), zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
+nf = nf[order(FOREST_ID,congress), na.locf(.SD, na.rm = FALSE,fromLast=TRUE),by = .(FOREST_ID)]
+nf$congress = as.numeric(nf$congress)
+nf$ln_County_naturalresource_GDP_1M = log(nf$NaturalResources1M+1)
+nf$Prop_Extraction_Employ = nf$Prop_NaturalResourceEmployment
+nf$Perc_Extraction_Employ = nf$Prop_Extraction_Employ * 100
 center_continuous_cov = TRUE
 
 nf= nf[nf$FOREST_ID%in%admin_districts$FOREST_ID,]
@@ -88,8 +123,15 @@ if(period_type !='congress'){
 all_combos = data.table(all_combos)
 subtypes = unique(counts_by_type$Project_Type)
 
+nf$`Avg_MBF_Cut_1999-2004`[is.na(nf$`Avg_MBF_Cut_1999-2004`)]<-0
+nf$Ln_Avg_MBF_Cut_1999_2004 = log(nf$`Avg_MBF_Cut_1999-2004`+0.001)
+
+nf$ln_Receipts_Extraction_1M_P4 <- log(nf$Receipts_TimberMineralsGrazing_P4/1e6+1)
+nf$ln_Receipts_Recreation_1M_P4 <- log(nf$Receipts_Recreation_P4/1e6+1)
+
+nf = nf[order(FOREST_ID,CALENDAR_YEAR),Unemp_Rate:=lag(LAU_October),by = .(FOREST_ID)]
 nf$STATE = admin_districts$STATE[match(nf$FOREST_ID,admin_districts$FOREST_ID)]
-nf$USFS_REGION = str_extract(nf$FOREST_ID,'^[0-9]{2}')
+
 dist_by_year = full_join(admin_districts,nf[,.(FOREST_ID,LCV_annual,CALENDAR_YEAR)])
 dist_by_year = dist_by_year[!is.na(dist_by_year$CALENDAR_YEAR),]
 
@@ -425,7 +467,7 @@ gg_priors = ggplot(hypers[!grepl('dispersion',param),]) +
   ggtitle('Sensitivity of iid latent effects to prior distribution',
           '(scale varies by panel)')
 
-ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA1_prior_sensitivity.tiff',plot = gg_priors,width= 7,height = 9,dpi = 350,units = 'in')
+ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA1_prior_sensitivity.png',plot = gg_priors,width= 7,height = 9,dpi = 500,units = 'in')
 
 
 res = rbindlist(lapply(seq_along(mod_list),function(x) data.table(prior = names(mod_list)[x],
@@ -461,7 +503,7 @@ focal_priors = ggplot(data = res,aes(x = prior,y = mean,ymin = `0.025quant`,ymax
   facet_wrap(coef~lik,ncol = 2) + coord_flip() + theme_bw() +xlab('Prior distribution')+
   ylab('95% credible interval') + ggtitle('Focal parameter estimates w/ \ndifferent priors in iid latent effects')
 
-ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA2_focal_prior_sensitivity.tiff',plot = focal_priors,width= 5,height = 6.25,dpi = 350,units = 'in')
+ggsave(filename = 'policypolitics/tables_figures/figures/figures_in_paper/figureA2_focal_prior_sensitivity.png',plot = focal_priors,width= 5,height = 6.25,dpi = 500,units = 'in')
 
 
 

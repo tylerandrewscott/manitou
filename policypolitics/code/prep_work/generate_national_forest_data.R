@@ -1,4 +1,6 @@
 
+options(timeout=100) 
+
 packages = c('data.table','stringr','tidyverse','sf','lwgeom','ggthemes','lubridate','pbapply','parallel','zoo','readxl','tigris')
 not_installed = packages[!packages %in% installed.packages()[,'Package']]
 if(length(not_installed)>0){lapply(not_installed,install.packages)}
@@ -259,12 +261,12 @@ wui_housing_units = county_wui_over[,lapply(.SD,weighted.mean,w=prop_in_county,n
 temp_dt = data.table(left_join(temp_dt,wui_housing_units))
 
 ###### add house representative variables
-house = readRDS('policypolitics/raw_curated_inputs/houseAtts_5-2019.RDS')
+house = readRDS('policypolitics/prepped_inputs/houseAtts.rds') 
 house = data.table(house)
-house= house[!duplicated(paste0(year,stateDistrict)),]
+house= house[!duplicated(paste0(year,stateDistrict)),] 
 setnames(house,'year','CALENDAR_YEAR')
 house$Congressional_District_ID <- formatC(house$Congressional_District_ID,width=4,flag = 0)
-cd_ideology = readRDS('policypolitics/raw_curated_inputs/cd_ideology_7-2021_fixed2013year.RDS')
+cd_ideology = readRDS('policypolitics/prepped_inputs/cd_ideology.RDS')
 
 cd_ideology$cd_fips[grepl('00$',cd_ideology$cd_fips)] <- cd_ideology$cd_fips[grepl('00$',cd_ideology$cd_fips)] + 1
 cd_ideology$cd_fips = formatC(cd_ideology$cd_fips,width = 4,flag = 0)
@@ -275,19 +277,20 @@ house$mrp_mean<-cd_ideology$mrp_mean[match(
   paste(cd_ideology$year,formatC(cd_ideology$cd_fips,width = 4,flag = 0)))]
 setkey(house,CALENDAR_YEAR,Congressional_District_ID)
 
-house_overs = fread('policypolitics/prepped_inputs/nationalforest_congressdistrict_overlap_props.csv')
+house_overs = fread('policypolitics/prepped_inputs/nationalforest_congressdistrict_overlap_props.csv') # 7917, same
 house_overs$FOREST_ID = formatC(house_overs$FOREST_ID,width=4,flag = 0)
 house_overs$Congressional_District_ID <- formatC(gsub('00$','01',house_overs$Congressional_District_ID),width=4,flag=0)
 setnames(house_overs,'Year','CALENDAR_YEAR')
 setkey(house_overs,CALENDAR_YEAR,Congressional_District_ID)
-house_dt = data.table(left_join(house,house_overs))
+house_dt = data.table(left_join(house,house_overs)) 
 house_dt$Prop_Overlap = round(house_dt$Prop_Overlap,2)
-house_dt = house_dt[house_dt$Prop_Overlap>0,]
-pol_cols = c("LCV_annual","LCV_lifetime","democrat","nominate_dim1",'nominate_dim2','demPres','demCongress','agChairLCV','agChairDW1','nrChairDW1','nrChairLCV','agComLCV','agComDW1','nrComLCV','nrComDW1','mrp_mean')
+house_dt = house_dt[house_dt$Prop_Overlap>0,] 
+pol_cols = c('LCV_annual', 'demPres', 'demCongress', 'mrp_mean') 
+# pol_cols = c("LCV_annual","LCV_lifetime","democrat","nominate_dim1",'nominate_dim2','demPres','demCongress','agChairLCV','agChairDW1','nrChairDW1','nrChairLCV','agComLCV','agComDW1','nrComLCV','nrComDW1','mrp_mean')
 
 
 forest_house_values = house_dt[,lapply(.SD,weighted.mean,w=Prop_Overlap,na.rm=T), by=.(FOREST_ID,CALENDAR_YEAR,congress),.SDcols = pol_cols]
-forest_house_values$CALENDAR_YEAR = as.numeric(forest_house_values$CALENDAR_YEAR)
+forest_house_values$CALENDAR_YEAR = as.numeric(forest_house_values$CALENDAR_YEAR) # 1672, now 1665 (not really sure why that would happen)
 setkey(forest_house_values,'FOREST_ID','CALENDAR_YEAR')
 setkey(temp_dt,'FOREST_ID','CALENDAR_YEAR')
 
@@ -617,6 +620,8 @@ temp_dt[order(FOREST_ID,CALENDAR_YEAR),Timber_Cut_MBF_4yr_Change_Perc:= (lag(Cut
 
 temp_dt = temp_dt[order(FOREST_ID,CALENDAR_YEAR,congress),]
 temp_dt = temp_dt[, zoo::na.locf(.SD, na.rm = FALSE),by = .(FOREST_ID)]
+
+
 temp_dt$Prop_Extraction_Employ = temp_dt$Prop_Forestry_Employ + temp_dt$Prop_Mining_Employ
 temp_dt$Perc_Extraction_Employ = temp_dt$Prop_Extraction_Employ*100
 temp_dt$Prop_Outdoor_Employ = temp_dt$Prop_HuntingFishing + temp_dt$Prop_Recreation
@@ -630,12 +635,12 @@ temp_dt$Burned_Perc_Past5yrs = temp_dt$Burned_Prop_Past5yrs * 100
 temp_dt$ACRES = admin_districts$GIS_ACRES[match(temp_dt$FOREST_ID,admin_districts$FOREST_ID)]
 temp_dt$demCongress[temp_dt$demCongress==2] <- 0
 temp_dt$congress = as.character(temp_dt$congress)
-temp_dt$nominate_dim1  = temp_dt$nominate_dim1  * -1
-temp_dt$nominate_dim2  = temp_dt$nominate_dim2  * -1
+#temp_dt$nominate_dim1  = temp_dt$nominate_dim1  * -1
+#temp_dt$nominate_dim2  = temp_dt$nominate_dim2  * -1 
 temp_dt$mrp_mean = temp_dt$mrp_mean * -1
 
-temp_dt$ComLCV = (temp_dt$nrComLCV+temp_dt$agComLCV)/2
-temp_dt$ChairLCV = (temp_dt$nrChairLCV + temp_dt$agChairLCV)/2
+#temp_dt$ComLCV = (temp_dt$nrComLCV+temp_dt$agComLCV)/2 
+#temp_dt$ChairLCV = (temp_dt$nrChairLCV + temp_dt$agChairLCV)/2 
 
 temp_dt$Ln_ACRES = log(temp_dt$ACRES)
 temp_dt$Ln_AVERAGE_YEARLY_VISITS = log(temp_dt$Average_Yearly_Visits)

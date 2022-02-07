@@ -2,7 +2,7 @@
 
 This repository subdirectory is for a paper written as part of NSF project #1829239. The paper is published in the Journal of Public Administration Research & Theory, [DOI and link to be filled in].The project broadly concerns what and how environmental science is used in environmental impact assessment by the U.S. Forest Service. In this specific paper, we consider a slightly different question: How agency decision-making related to environmental impact assessment is associated with local communities’ political representation.
 
-This subdirectory contains all of the data and code materials necessary to replicate the project. For questions, please raise an issue and tag us here on Github. The project materials are
+This subdirectory contains all of the data and code materials necessary to replicate the project. For questions, please raise an issue and tag us here on Github. 
 
 ## Paper Abstract
 

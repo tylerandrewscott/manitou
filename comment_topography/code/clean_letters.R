@@ -22,21 +22,9 @@ library(tokenizers)
 library(textstem)
 library(tm)
 library(devtools)
-
 starting_file <- 'comment_topography/scratch/case_comments_from_cara_w_zips.RDS'
 
-temp <- tempfile(fileext = ".zip")
-download.file("https://drive.google.com/uc?authuser=0&id=1AiZda_1-2nwrxI8fLD0Y6e5rTg7aocv0&export=download",
-              temp)
-out <- unzip(temp, exdir = tempdir())
-bank <- read.csv(out[14], sep = ";")
-str(bank)
-
-if(!file.exists(starting_file)){
-  download.file(destfile = starting_file,url = 'https://drive.google.com/file/d/1PN83cOi7yFy7EE084HoLSUUM_WaLTqLg/view?usp=sharing')
-  
-}
-dt <- readRDS('comment_topography/scratch/case_comments_from_cara_w_zips.RDS')
+dt <- readRDS(starting_file)
 dt <- data.table(dt)
 
 last_20 = str_sub(dt$Letter.Text,start = -20)
@@ -114,7 +102,7 @@ library(tm)
 dt = dt[dt$Letter.Text.Clean!='',]
 dt = dt[nchar(dt$Letter.Text.Clean)>50,]
 ## question: custom stop words? probably. things like USFS.
-fwrite(data.table(dt)[,.(Letter.Text.Clean,UQID)],file = 'comment_topography/scratch/cleaned_comment_text.txt',sep = '\t')
+saveRDS(data.table(dt)[,.(Letter.Text.Clean,UQID)],file = 'comment_topography/input/cleaned_comment_text.RDS')
 dt_meta <- data.table(dt) 
 dt_meta[,Letter.Text:=NULL]
 #dt_meta[,letter_sents:=NULL]
@@ -127,5 +115,5 @@ dt_meta$Letter.Number<-formatC(dt_meta$Letter.Number,width = max(nchar(dt_meta$L
 dt_meta$Project.Number<-formatC(dt_meta$Project.Number,width = max(nchar(dt_meta$Project.Number)),flag = '0')
 
 dt_meta <- apply(dt_meta,2,enc2utf8)
-fwrite(data.table(dt_meta),file = 'comment_topography/scratch/cleaned_comment_meta.txt',sep = '\t')
+saveRDS(data.table(dt_meta),file = 'comment_topography/input/cleaned_comment_meta.RDS')
 

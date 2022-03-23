@@ -19,8 +19,8 @@ library(igraph)
 # Set number of threads
 setThreadOptions(7)
 
-dt = fread('comment_topography/scratch/cleaned_comment_text.txt',sep = '\t')
-meta = fread('comment_topography/scratch/cleaned_comment_meta.txt',sep = '\t')
+dt = readRDS('comment_topography/input/cleaned_comment_text.RDS')
+meta = readRDS('comment_topography/input/cleaned_comment_meta.RDS')
 
 meta$FORM = NA
 meta$group <- NA
@@ -87,7 +87,7 @@ for(p in pnums){
 # htmlTable(form_summary)
 
   
-fwrite(meta[,.(UQID,FORM,GROUP)],'comment_topography/scratch/form_letter_designation.txt',sep = '\t')
+fwrite(meta[,.(UQID,FORM,GROUP)],'comment_topography/input/form_letter_designation.txt',sep = '\t')
 
 
 

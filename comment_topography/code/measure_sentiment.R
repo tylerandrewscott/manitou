@@ -59,6 +59,6 @@ names(sent_all) <- c('hashes','word_count','sentiment')
 dt_with_sent = full_join(dt_all,sent_all)
 
 meta_sent = cbind(meta,dt_with_sent[match(meta$hashes,dt_with_sent$hashes),.(nchar,word_count,sentiment)])
-fwrite(meta_sent[,.(UQID,sentiment,nchar,word_count)],'comment_topography/scratch/sentiment_scores.txt',sep = '\t')
+saveRDS(meta_sent[,.(UQID,sentiment,nchar,word_count)],'comment_topography/input/sentiment_scores.txt',sep = '\t')
 
 

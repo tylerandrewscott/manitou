@@ -247,298 +247,39 @@ dt_nf <- dt_nf[UQID %in%  meta_nf$UQID[meta_nf$Project.Number==p]]
 meta_nf <- meta_nf[Project.Number == p,]
 meta_nf$sent_group <- ifelse(meta_nf$sentiment<(-0.2),'negative',ifelse(meta_nf$sentiment>(0.2),'positive','neutral'))
 
-x <- udpipe_annotate(ud_model, x = tolower(dt_nf$Letter.Text.Clean),doc_id = meta_nf$UQID)
-x <- as.data.frame(x)
-sentence_sentiment <- sentimentr::sentiment(x$sentence)
-
-
-x$sentiment_group <- meta_nf$sent_group[match(x$doc_id,meta_nf$UQID)]
-
-
-
-
-i = 'negative'
-nmin = 10; nr = 0
-rake <- keywords_rake(x = x[x$sentiment_group==i,], 
-                      term = "token", group = c('sentiment_group'),
-                      relevant = x$upos[x$sentiment_group==i] %in% c("NOUN", "ADJ",'PROPN'),
-                      ngram_max = 3,n_min = nmin)  %>%
-  arrange(-rake) %>%  mutate(sentiment_group = i) %>% head(.,3) 
-rake
-
-#x <- x[x$upos !='PUNCT',]
-#x <- x[!x$token %in% stopwords::stopwords(),]
-cluster_keys <- lapply(sort(unique(M_dt2$cluster)),function(i) {
-  print(i)
-  nr <- 0;nmin <- 10
-  while(nr == 0){
-    rake <- keywords_rake(x = x[x$cluster==i,], 
-                          term = "token", group = c('cluster'),
-                          relevant = x$upos[x$cluster==i] %in% c("NOUN", "ADJ",'PROPN'),
-                          ngram_max = 3,n_min = nmin)  %>%
-      arrange(-rake) %>%  mutate(cluster = i) %>% head(.,3) 
-    # filter(!keyword %in% c('network governance','governance networks','policy networks','policy network','social networks','network analysis',
-    #                   'natural resource','environmental management','environmental policy','environmental decision')) %>%
-    #  filter(!keyword %in% c('policy networks','policy network','social network analysis')) %>% 
-    #  head(.,3) %>% 
-    nr = nrow(rake)
-    nmin = nmin -1
-
-
-
-
-
-dt_uq$val <- dt_uq$pos - dt_uq$neg
-
-dt$net_positivity <- dt_uq$val[match(dt$hashes,dt_uq$hashes)]
-
-ggplot(data = dt[meta$FORM==T,]) + 
-  geom_density
-
-table(is.na(dt_uq$neg))
-
-sent_dt$neg[match(dt_uq$hashes,sent_dt$hashes)]
-sent_dt$pos[match(dt_uq$hashes,sent_dt$hashes)]
-sent_dt$neu[match(dt_uq$hashes,sent_dt$hashes)]
-
-temp = vader::vader_df(dt_uq$Letter.Text.Clean[dt_uq$nchar<2000])
-
-
-while(any(is.na(dt_uq$val))){
-  for(i in which(is.na(dt_uq$val))){
-    i = which(is.na(dt_uq$val))[10]
-    temp <- get_vader(dt_uq$Letter.Text.Clean[i])[c('neg','pos','neu')]
-    temp <- as.numeric(temp)
-    temp['val'] <- temp['pos'] - temp['new']
-    
-    }
-}
-
-dt_uq <- left_join(dt_uq,test)
-
-test = readRDS('comment_topography/comment_sentiments.rds')
-
-
-
-sent_file <- 'comment_topography/comment_sentiments.rds'
-if(!file.exists(sent_file)){
-  tiles <- ntile(1:nrow(dt_uq),n = 1000)
-  sent_all_dt <- data.table()
-  for(t in unique(tiles)){
-    print(t)
-    vader_list = pblapply(dt_uq$Letter.Text.Clean[tiles==t],get_vader,neu_set = T,cl = 7)
-    sent_dt = data.table(hashes = dt_uq$hashes[tiles==t],
-                         neg = as.numeric((sapply(vader_list,function(x) x['neg']))),
-                         pos = as.numeric((sapply(vader_list,function(x) x['pos']))),
-                         neu = as.numeric((sapply(vader_list,function(x) x['neu']))))
-    sent_all_dt <- rbind(sent_all_dt,sent_dt,use.names = T,fill = T)
-  }
-}
-
- names(vader_list) <- dt$UQID
 # 
- sent_dt = data.table(UQID = meta$UQID,
-                     neg = as.numeric((sapply(vader_list,function(x) x['neg']))),
-                      pos = as.numeric((sapply(vader_list,function(x) x['pos']))),
-                      neu = as.numeric((sapply(vader_list,function(x) x['neu']))))
-sent_dt$val = sent_dt$pos - sent_dt$neg
- saveRDS(sent_dt,'comment_topography/comment_sentiments.rds')
-}
-
-sent_dt = readRDS('comment_topography/comment_sentiments.rds')
-setnames(sent_dt,'val','net_positivity')
-meta = left_join(meta,sent_dt)
-#meta = meta[!is.na(net_positivity),]
-
-meta[FORM==F&is.na(net_positivity),]
-sent_dt[UQID==2076,]
-
-zcta = tigris::zctas(year = 2018,class = 'sf')
-zcta = zcta[zcta$ZCTA5CE10 %in% meta$Author.ZipCode,]
-
-
-
-meta[,.N,by=.(Author.ZipCode,FORM)][!is.na(Author.ZipCode),]
-
-
-
-
-
-for(p in unique(meta$Project.Number)){
-  p = unique(meta$Project.Number)[1]
-  meta_sub = left_join(meta[Project.Number==p,],sent_dt)
-  count_and_sentiment_dt = meta_sub[,list(.N,mean(val,na.rm = T)),
-                                    by=.(Author.ZipCode)]
-  setnames(count_and_sentiment_dt,'Author.ZipCode','ZCTA5CE10')
-  
-  p1_zcta = zcta[zcta$ZCTA5CE10 %in% count_and_sentiment_dt$ZCTA5CE10,]
-  p1_zcta$N = count_and_sentiment_dt$N[match(p1_zcta$ZCTA5CE10,count_and_sentiment_dt$ZCTA5CE10)]
-  p1_zcta$Avg_Net_Sentiment = count_and_sentiment_dt$V2[match(p1_zcta$ZCTA5CE10,count_and_sentiment_dt$ZCTA5CE10)]
-  
-  
-  
-
-
-
-meta$FOREST_ID <- formatC(meta$FOREST_ID,width = 4,flag = '0')
-admin_districts <- admin_districts[admin_districts$FORESTORGC %in% meta$FOREST_ID,]
-
-ggplot() + geom_sf(data =admin_districts)
-
-admin_districts <- st_transform(admin_districts,st_crs(zcta))
-dist_mat = st_distance(zcta,admin_districts)
-dist_mat <- as.matrix(dist_mat)
-colnames(dist_mat) <- admin_districts$FORESTORGC
-rownames(dist_mat) <- zcta$ZCTA5CE10
-
-which_forest <- match(meta$FOREST_ID,colnames(dist_mat))
-meta$km_to_forest <- ifelse(which_forest==1,dist_mat[,1],dist_mat[,2])/1e3
-
-meta$net_positivity <- sent_dt$val[match(meta$UQID,sent_dt$UQID)]
-
-
-g_sent = ggplot(meta,aes(x = sqrt(km_to_forest),y = net_positivity)) + 
-  geom_point() + stat_smooth() + 
-  scale_x_continuous('sqrt(km between zip code and forest)')+
-  scale_y_continuous(name = 'net sentiment rating') +
-  labs(caption = 'net sentiment = proportion positive - proportion negative\nexcludes neutral language')+
-  theme_bw() + ggtitle('comment sentiment vs. distance to project','(non-form letters only)')+
-ggsave(g_sent,filename = 'comment_topography/output/sentiment_vs_distance_non_form_letters.png',dpi = 300,units = 'in',width = 7,height = 7)
-
-#table(is.na(meta$Author.ZipCode))
-#table(meta$Author.ZipCode %in% zcta$ZCTA5CE10)
-#table(meta$Author.ZipCode[!is.na(meta$Author.ZipCode)] %in% zcta$ZCTA5CE10)
-
-library(tigris)
-library(sf)
-library(ggthemes)
-states = tigris::states(cb = T,year = 2019,class = 'sf')
-
-table(meta$FOREST_ID)
-meta[is.na(FOREST_ID),]
-meta$FOREST_ID %>% unique()
-ggplot() + geom_sf(data = )
-
-
-
-
-
-
-g1 = ggplot() + 
- # geom_sf(data = states,col = 'grey50',fill = NA) + 
-  geom_sf(data = p1_zcta,aes(fill = N)) + 
-  scale_color_viridis_c() + theme_map() + 
-  ggtitle('# of comments')
-
-
-g2 = ggplot() + 
-  geom_sf(data = states,col = 'grey50',fill = NA) + 
-  geom_sf(data = p1_zcta,aes(fill = Avg_Net_Sentiment)) + 
-  scale_color_viridis_c() + theme_map() + 
-  ggtitle('Average sentiment')
-
-
-library(gridExtra)
-ggsave(filename = paste0('comment_topography/output/figures/p',p,'sentiment_by_zipcode.png'),plot = grid.arrange(g1,g2,ncol = 1),height = 10,width = 10,dpi = 300, units = 'in')
-
-temp = readRDS('comment_topography/scratch/case_comments_from_cara_w_zips.RDS')
-chars = sapply(temp$Letter.Text,nchar)
-
-nchar(temp[temp$Project.Number==45579 & temp$Letter.Number == 1031,]$Letter.Text)
-which(nchar(dt$Letter.Text.Clean)>1e5)
-get_vader(dt$Letter.Text.Clean[2930])
-vd_list <- pblapply(dt_sub$Letter.Text.Clean,get_vader,cl = 6)
-
-
-
-rbindlist(vd_list)
-
-
-vad = vader_df(dt_sub$Letter.Text.Clean)
-
-vad$word_scores
-plot(vad$pos,vad$neg)
-
-
-library(textmineR)
-corp = quanteda::corpus(dt$Letter.Text.Clean)
-#toks = quanteda::tokenize_word(corp)
-# create a document term matrix 
-dfm = dfm(x = corp)
-meta$FORM <- NA
-### now, we can practice on one project:
-
-
-
-require(proxyC)
-require(Matrix)
-## Loading required package: Matrix
-require(microbenchmark)
-## Loading required package: microbenchmark
-require(RcppParallel)
-## Loading required package: magrittr
-# Set number of threads
-setThreadOptions(4)
-
-for(p in pnums){
-print(p)
-  p = pnums[2]
-dfm_sub = dfm[meta$Project.Number==p,]
-trim = 5
-dfm_sub = quanteda::dfm_trim(dfm_sub,min_termfreq = trim)
-nt = dplyr::ntile(1:nrow(dfm_sub),n = round(nrow(dfm_sub)/10e3))
-nt = sample(nt)
-
-dfm_split <- lapply(sort(unique(nt)),function(x) {
-  dfm_sub[nt==x,]})
-sparse_dfm_list <- lapply(dfm_split,as, "CsparseMatrix")
-cosign_sim_list <- lapply(sparse_dfm_list,simil,margin = 1,method = 'cosine',min_simil = 0.95)
-
-row_exceeds_list <- lapply(cosign_sim_list,function(y) apply(y,1,function(x) sum(x>=0.95)>1))
-form_names_list <- mapply(function(x,y) rownames(x[y,]), x = sparse_dfm_list,y = row_exceeds_list)
-meta$FORM[as.numeric(str_extract(unlist(form_names_list),'[0-9]{1,}'))] <- 1
-}
-
-meta$FORM[is.na(meta$FORM)]<-0
-form_summary <- meta[,list(round(mean(FORM),2),.N),by=.(Project.Number)]
-names(form_summary) <- c('project #','% form letters','total comments')
-form_summary
-library(htmlTable)
-htmlTable(form_summary)
-fwrite(meta,'comment_topography/scratch/cleaned_comment_meta_form_desig.txt',sep = ',')
-
-
-csim <- dfm_tfidf / sqrt(rowSums(dfm_tfidf * dfm_tfidf))
-csim <- csim %*% t(csim)
-cdist <- as.dist(1 - csim)
-
-
-hc <- hclust(cdist, "ward.D")
-clustering <- cutree(hc, 10)
-plot(hc, main = "Hierarchical clustering of 100 NIH grant abstracts",
-     ylab = "", xlab = "", yaxt = "n")
-rect.hclust(hc, 10, border = "red")
-
-
-# TF-IDF and cosine similarity
-tfidf <- t_dtm_term_sort * tf_mat$idf
-tfidf <- t(tfidf)
-
-csim <- tfidf / sqrt(rowSums(tfidf * tfidf))
-csim <- csim %*% t(csim)
-sparsity(dfm)
-cdist <- as.dist(1 - csim)
-
-hc <- hclust(cdist, "ward.D")
-
-clustering <- cutree(hc, 10)
-
-plot(hc, main = "Hierarchical clustering of 100 NIH grant abstracts",
-     ylab = "", xlab = "", yaxt = "n")
-
-rect.hclust(hc, 10, border = "red")
-
-
-
+# 
+# x <- udpipe_annotate(ud_model, x = tolower(dt_nf$Letter.Text.Clean),doc_id = meta_nf$UQID)
+# x <- as.data.frame(x)
+# sentence_sentiment <- sentimentr::sentiment(x$sentence)
+# x$sentiment_group <- meta_nf$sent_group[match(x$doc_id,meta_nf$UQID)]
+# i = 'negative'
+# nmin = 10; nr = 0
+# rake <- keywords_rake(x = x[x$sentiment_group==i,], 
+#                       term = "token", group = c('sentiment_group'),
+#                       relevant = x$upos[x$sentiment_group==i] %in% c("NOUN", "ADJ",'PROPN'),
+#                       ngram_max = 3,n_min = nmin)  %>%
+#   arrange(-rake) %>%  mutate(sentiment_group = i) %>% head(.,3) 
+# rake
+# 
+# #x <- x[x$upos !='PUNCT',]
+# #x <- x[!x$token %in% stopwords::stopwords(),]
+# cluster_keys <- lapply(sort(unique(M_dt2$cluster)),function(i) {
+#   print(i)
+#   nr <- 0;nmin <- 10
+#   while(nr == 0){
+#     rake <- keywords_rake(x = x[x$cluster==i,], 
+#                           term = "token", group = c('cluster'),
+#                           relevant = x$upos[x$cluster==i] %in% c("NOUN", "ADJ",'PROPN'),
+#                           ngram_max = 3,n_min = nmin)  %>%
+#       arrange(-rake) %>%  mutate(cluster = i) %>% head(.,3) 
+#     # filter(!keyword %in% c('network governance','governance networks','policy networks','policy network','social networks','network analysis',
+#     #                   'natural resource','environmental management','environmental policy','environmental decision')) %>%
+#     #  filter(!keyword %in% c('policy networks','policy network','social network analysis')) %>% 
+#     #  head(.,3) %>% 
+#     nr = nrow(rake)
+#     nmin = nmin -1
+# 
+# 
 
 

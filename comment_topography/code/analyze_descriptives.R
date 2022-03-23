@@ -152,7 +152,6 @@ plyr::l_ply(seq(nrow(project.name.key)),function(p){
 
 #### map form letter sentiment by project
 plyr::l_ply(seq(nrow(project.name.key)),function(p){
-  p  = 1
   proj <- meta[Project.Number == project.name.key$Project.Number[p] & FORM==1,]
   pzip <- zcta[zcta$ZCTA5CE10 %in% proj$new_zip,]
   sent_by_zip <- proj[,list(.N,mean(sentiment,na.rm=T)),by=.(new_zip)]
@@ -178,17 +177,20 @@ plyr::l_ply(seq(nrow(project.name.key)),function(p){
 
 #####
 proj_list <- lapply(seq(nrow(project.name.key)),function(p){
+  print(p)
   proj <- meta[Project.Number == project.name.key$Project.Number[p],]
   setnames(proj,'new_zip','ZCTA5CE10')
   pzip <- zcta[zcta$ZCTA5CE10 %in% proj$new_zip,]
   zcta_temp <- zcta[zcta$ZCTA5CE10 %in% proj$ZCTA5CE10,]
   admin_temp <- admin_districts[admin_districts$FOREST_ID %in% project.name.key$FORESTS[[which(project.name.key$Project.Number[p]==project.name.key$Project.Number)]],]
-  dist_mat <- st_distance(zcta_temp,admin_temp)
-  zcta_temp$km_from_project <- apply(dist_mat,1,min)/1000
+  temp_combo = st_union(admin_temp)
+  dist_list = pblapply(1:nrow(zcta_temp),function(x) st_distance(zcta_temp[x,],temp_combo),cl = 7)
+  #dist_mat <- st_distance(zcta_temp,temp_combo)
+  zcta_temp$km_from_project <- unlist(dist_list)/1000
   proj$km_from_project <- zcta_temp$km_from_project[match(proj$ZCTA5CE10,zcta_temp$ZCTA5CE10)]
   proj})
-proj_dt <- rbindlist(proj_list)
 
+proj_dt <- rbindlist(proj_list)
 sent_by_distance <- ggplot(proj_dt,aes(x = sqrt(km_from_project),
                                        y = sentiment,group = Project,col = Project)) + 
   scale_color_colorblind(name = 'Project') + theme_bw()+
@@ -213,8 +215,8 @@ sent_by_distance_and_letter <- ggplot(proj_dt,
   theme(legend.position = c(0.8,0.1),legend.title = element_blank())
 ggsave(plot = sent_by_distance_and_letter,filename = 'comment_topography/output/sentiment_vs_distance_by_type.png',dpi = 300,units = 'in',width = 10,height = 10)
 
-meta$GROUP[meta$GROUP==''] <- NA
 
+meta$GROUP[meta$GROUP==''] <- NA
 meta[Project=='Stibnite Gold Mine',.N,by=.(GROUP)][order(-N),]
 cumSum <- meta[,.N,by=.(GROUP,Project)][order(Project,N),][!is.na(GROUP),]
 cumSum$pindex <- 1
@@ -247,7 +249,13 @@ meta_nf$sent_group <- ifelse(meta_nf$sentiment<(-0.2),'negative',ifelse(meta_nf$
 
 x <- udpipe_annotate(ud_model, x = tolower(dt_nf$Letter.Text.Clean),doc_id = meta_nf$UQID)
 x <- as.data.frame(x)
+sentence_sentiment <- sentimentr::sentiment(x$sentence)
+
+
 x$sentiment_group <- meta_nf$sent_group[match(x$doc_id,meta_nf$UQID)]
+
+
+
 
 i = 'negative'
 nmin = 10; nr = 0

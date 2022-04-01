@@ -26,6 +26,8 @@ starting_file <- 'comment_topography/scratch/case_comments_from_cara_w_zips.RDS'
 
 dt <- readRDS(starting_file)
 dt <- data.table(dt)
+dt$Letter.Text.Clean <- dt$Letter.Text
+dt$UQID <- 1:nrow(dt)
 
 last_20 = str_sub(dt$Letter.Text,start = -20)
 zip_extracts <- str_extract_all(last_20,'[^0-9][0-9]{5}[^0-9]')
@@ -33,15 +35,12 @@ zip_extracts <- str_extract_all(last_20,'[^0-9][0-9]{5}[^0-9]')
 zip_extracts <- lapply(zip_extracts,function(x) {str_remove_all(x,'[^0-9]')})
 zip_extracts <- lapply(zip_extracts,function(x) unique(x))
 zip_extracts <- lapply(zip_extracts,function(x) x[1])
-
 zips = ifelse(sapply(zip_extracts,length)==0,NA,zip_extracts)
 
 dt$extracted_zip <- unlist(zips)
 dt$ZIPCODE <- ifelse(!is.na(dt$Author.ZipCode),dt$Author.ZipCode,dt$extracted_zip)
 
-dt$Letter.Text.Clean <- dt$Letter.Text
-dt$UQID <- 1:nrow(dt)
-
+dt$Letter.Text[dt$UQID==21]
 library(pbapply)
 line_list <- tokenize_lines(dt$Letter.Text.Clean)
 alphanumOnly <- function(x){

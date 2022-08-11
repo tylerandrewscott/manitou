@@ -18,6 +18,14 @@ library(vader)
 library(pbapply)
 library(pals)
 library(udpipe)
+library(ggmaps)
+library(ggthemes)
+library(tigris)
+albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
+states <- states(year = 2020,class = 'sf',cb = T)
+states <- st_transform(states,albersNA)
+zcta <- zctas(class = 'sf',year = 2010)
+zcta <- st_transform(zcta,st_crs(albersNA))
 #dt = fread('comment_topography/scratch/cleaned_comment_text_form_desig.txt',sep = '\t')
 dt = readRDS('comment_topography/input/cleaned_comment_text.RDS')
 metad = readRDS('comment_topography/input/cleaned_comment_meta.RDS')
@@ -44,10 +52,6 @@ zip_to_zcta$zip_code <- formatC(x = zip_to_zcta$zip_code,width = 5,flag = '0')
 zip_to_zcta <- zip_to_zcta[!zip_code %in%zcta_out_of_states$zip,]
 zip_to_zcta$zcta <- formatC(x = zip_to_zcta$zcta,width = 5,flag = '0')
 
-
-table(metad$group_size[!duplicated(metad$GROUP)])
-
-
 #metad$ZCTA <- metad$new_zip %in% zcta$ZCTA5CE10
 
 metad$ZCTA<-zip_to_zcta$zcta[match(metad$Use.Zipcode,as.character(zip_to_zcta$zip_code))]
@@ -60,7 +64,6 @@ project.name.key = data.table(Project.Number = unique(metad$Project.Number),Proj
 
 metad$Project <- project.name.key$Project[match(metad$Project.Number,project.name.key$Project.Number)]
 td = tempdir()
-#albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 library(httr)
 library(sf)
 library(tmap)
@@ -144,16 +147,23 @@ ggsave(plot = gdist,filename = 'comment_topography/output/figures/distance_from_
 sga_plot <- metad[Project == 'Sage-grouse Amendments'&!is.na(ZCTA),list(.N,mean(FORM>0)),by=.(ZCTA)]
 setnames(sga_plot,names(sga_plot),c('ZCTA5CE10','# observed','prop. form'))
 
-zcta_sga <- left_join(zcta,sga_plot)
 
 ###   ### NOTE AT SOME POINT MAKE AK AND HI AN INSET 
 drop_states <- c('AK','PR','HI','AS','MP','GU','VI')
 filter_state <- states[!states$STUSPS%in%drop_states,]
+
+zcta_sga <- left_join(zcta,sga_plot)
+
 zcta_sga_filter <- st_intersects(zcta_sga,filter_state)
 
-ggplot() + geom_sf(data = filter_state,fill = NA) +
-  geom_sf(data = zcta_sga[sapply(zcta_sga_filter,length)>0,],aes(fill = `# observed`))+
-  scale_fill_viridis_c()
+gg_sage <- ggplot() + geom_sf(data = filter_state,fill = NA) +theme_map() + 
+  geom_sf(data = zcta_sga[sapply(zcta_sga_filter,length)>0,],
+          aes(fill = `# observed`),col = NA)+
+  scale_fill_viridis_c(na.value = NA,direction = -1,option="magma")  +
+  theme(legend.direction = 'horizontal') + 
+  ggtitle('# comments observed by ZCTA on Sage-grouse Amendments')
+
+ggsave(plot = gg_sage,filename = 'comment_topography/output/figures/sagegrouse_comment_map.png',dpi = 300,units = 'in',width = 6,height = 5)
 
 
 metad <- metad[,group_median_km_to_forest:=median(km_to_forest,na.rm = T),by=.(GROUP)]
@@ -632,12 +642,7 @@ ggplot(data = metad[!is.na(FORM),]) +
  scale_colour_discrete(name = 'letter type',labels = c('unique','form')) +
   scale_y_continuous('km from project')
 
-library(ggmaps)
-library(ggthemes)
-library(tigris)
-states <- states(year = 2020,class = 'sf',cb = T)
-zcta <- zctas(class = 'sf',year = 2010)
-zcta <- st_transform(zcta,st_crs(albersNA))
+
 metad[metad$new_zip==''] <- NA
 metad$new_zip <- str_extract(metad$new_zip,'^[0-9]{5}')
 projs <- unique(metad$Project.Number)
@@ -680,7 +685,7 @@ gg_p <- ggplot() + theme_map() +
   scale_fill_gradientn(limits= c(-0.5,0.5),breaks = c(-0.5,0,0.5),labels = c('more negative','neutral', 'more positive'),name = 'avg. sentiment',colours=coolwarm(100), guide = "colourbar")+
 scale_colour_gradientn(limits= c(-0.5,0.5),breaks = c(-0.5,0,0.5),labels = c('more negative','neutral', 'more positive'),name = 'avg. sentiment',colours=coolwarm(100), guide = "colourbar")
 
-ggsave(plot = gg_p,filename = paste0('comment_topography/output/all_sentiment_map_',project.name.key$Project.Number[p],'.png'),dpi = 300,units = 'in',height = 7,width = 10)
+ggsave(plot = gg_p,filename = paste0('comment_topography/output/figures/all_sentiment_map_',project.name.key$Project.Number[p],'.png'),dpi = 300,units = 'in',height = 7,width = 10)
 })
 
 ## map unique letter sentiment by project
@@ -703,7 +708,7 @@ plyr::l_ply(seq(nrow(project.name.key)),function(p){
     ggtitle(paste0('Avg. sentiment by zipcode,',project.name.key$Project[p]),'unique letters only')+
     scale_fill_gradientn(limits= c(-.5,0.5),breaks = c(-0.5,0,0.5),labels = c('more negative','neutral', 'more positive'),name = 'avg. sentiment',colours=coolwarm(100), guide = "colourbar")+
     scale_colour_gradientn(limits= c(-.5,0.5),breaks = c(-0.5,0,0.5),labels = c('more negative','neutral', 'more positive'),name = 'avg. sentiment',colours=coolwarm(100), guide = "colourbar")
-  ggsave(plot = gg_p,filename = paste0('comment_topography/output/unique_sentiment_map_',project.name.key$Project.Number[p],'.png'),dpi = 300,units = 'in',height = 7,width = 10)
+  ggsave(plot = gg_p,filename = paste0('comment_topography/output/figures/unique_sentiment_map_',project.name.key$Project.Number[p],'.png'),dpi = 300,units = 'in',height = 7,width = 10)
 })
 
 

@@ -5,6 +5,11 @@ if(length(not_installed)>0){lapply(not_installed,install.packages)}
 lapply(packages,require,character.only = T)
 albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 
+packages = c('data.table','stringr','tidyverse','sf','lwgeom','tigris','textreuse')
+not_installed = packages[!packages %in% installed.packages()[,'Package']]
+if(length(not_installed)>0){lapply(not_installed,install.packages)}
+lapply(packages,require,character.only = T)
+
 set.seed(24)
 library(tidyverse)
 library(vader)
@@ -17,9 +22,9 @@ library(vader)
 library(pbapply)
 library(pals)
 library(udpipe)
-#dt = fread('comment_topography/scratch/cleaned_comment_text_form_desig.txt',sep = '\t')
-dt = readRDS('comment_topography/input/cleaned_comment_text.RDS')
+
 metad = readRDS('comment_topography/input/cleaned_comment_meta.RDS')
+
 
 library(textreuse)
 
@@ -29,8 +34,10 @@ project.name.key = data.table(Project.Number = unique(metad$Project.Number),Proj
                                   "Sage-grouse Amendments",
                                   "Alaska Roadless Rule"))
 
-metad = left_join(metad,project.name.key)
-
+metad <- left_join(metad,project.name.key)
+metad <- metad[!is.na(Use.Zipcode),]
+metad$Use.Zipcode <- str_sub(metad$Use.Zipcode,end = 5)
+metad <- metad[!duplicated(paste(project.name.key,Use.Zipcode)),]
 
 library(ggmaps)
 library(ggthemes)
@@ -40,16 +47,19 @@ states <- states(year = 2020,class = 'sf',cb = T)
 #states <- st_transform(states,st_crs(albersNA))
 zcta <- zctas(class = 'sf',year = 2010)
 #zcta <- st_transform(zcta,st_crs(albersNA))
-metad[metad$new_zip==''] <- NA
-metad$new_zip <- str_extract(metad$new_zip,'^[0-9]{5}')
+
+metad <- metad[,.(Project.Number,Project,Use.Zipcode)]
+
+
 projs <- unique(metad$Project.Number)
 
 zip_to_zcta <- fread('https://raw.githubusercontent.com/censusreporter/acs-aggregate/master/crosswalks/zip_to_zcta/zip_zcta_xref.csv')
 zip_to_zcta$zip_code <- formatC(x = zip_to_zcta$zip_code,width = 5,flag = '0')
 zip_to_zcta$zcta <- formatC(x = zip_to_zcta$zcta,width = 5,flag = '0')
 #metad$ZCTA <- metad$new_zip %in% zcta$ZCTA5CE10
-metad$ZCTA<-zip_to_zcta$zcta[match(metad$new_zip,as.character(zip_to_zcta$zip_code))]
 
+metad$ZCTA<-zip_to_zcta$zcta[match(metad$Use.Zipcode,as.character(zip_to_zcta$zip_code))]
+metad <- metad[!is.na(ZCTA),]
 td = tempdir()
 #albersNA <- "+proj=aea +lat_1=29.5 +lat_2=45.5 +lat_0=37.5 +lon_0=-110 +x_0=0 +y_0=0 +ellps=GRS80 +datum=NAD83 +units=m"
 # # 
@@ -78,10 +88,11 @@ project.name.key$FORESTS <- list('0505','0412',c(paste0('04',admin_districts$FOR
 # gdist <- gDistance(zcta_sg_albers,admin_sg_albers,byid = T)
 # 
 
+
 library(ggthemes)
 #####
-proj_list <- lapply(seq(nrow(project.name.key))[-4],function(p){
-  print(p)
+proj_list <- lapply(seq(nrow(project.name.key)),function(p){
+print(p)
   if(p!=4){
   proj <- metad[Project.Number == project.name.key$Project.Number[p],]
   setnames(proj,'ZCTA','ZCTA5CE10')
@@ -92,12 +103,12 @@ proj_list <- lapply(seq(nrow(project.name.key))[-4],function(p){
     which_nearest <- rep(1,nrow(zcta_temp))
   }
   if(nrow(admin_temp)>1){
-    which_nearest <- pbsapply(1:nrow(zcta_temp),function(i) st_nearest_feature(x = zcta_temp[i,],y = admin_temp),cl = 7)
+    which_nearest <- pbsapply(1:nrow(zcta_temp),function(i) st_nearest_feature(x = zcta_temp[i,],y = admin_temp),cl = 4)
   }
-  nearest_dist <- pblapply(seq_along(which_nearest),function(x) st_distance(zcta_temp[x,],admin_temp[which_nearest[x],]),cl = 7)
+  nearest_dist <- pblapply(seq_along(which_nearest),function(x) st_distance(zcta_temp[x,],admin_temp[which_nearest[x],]),cl = 4)
   zcta_temp$km_from_project <- unlist(nearest_dist)/1000
   proj$km_from_project <- zcta_temp$km_from_project[match(proj$ZCTA5CE10,zcta_temp$ZCTA5CE10)]
-  proj}
+  return(proj)}
   if(p==4){
     proj <- metad[Project.Number == project.name.key$Project.Number[p],]
     setnames(proj,'ZCTA','ZCTA5CE10')
@@ -118,11 +129,18 @@ proj_list <- lapply(seq(nrow(project.name.key))[-4],function(p){
     
     zcta_temp$km_from_project <- unlist(nearest_dist)/1000
     proj$km_from_project <- zcta_temp$km_from_project[match(proj$ZCTA5CE10,zcta_temp$ZCTA5CE10)]
-    proj}
+    return(proj)}
 })
 
 proj_dt <- rbindlist(proj_list)
+
+zip_distance <- proj_dt[,.(ZCTA5CE10,km_from_project)]
+
+metad$km_from_project <- zip_distance$km_from_project[match(metad$ZCTA,zip_distance$ZCTA5CE10)]
 #saveRDS(object = proj_dt,'comment_topography/input/distance.RDS')
-fwrite(x = proj_dt[,.(UQID,km_from_project)],
+
+zp <- metad[,.(Project.Number,Use.Zipcode,ZCTA,km_from_project)]
+
+fwrite(x = zp,
        file = 'comment_topography/input/distance_to_project.txt',sep = '\t')
 

@@ -14,12 +14,19 @@ library(quanteda)
 library(quanteda.textstats)
 #library(vader)
 library(pbapply)
-dt = fread('comment_topography/scratch/cleaned_comment_text.txt',sep = '\t')
-meta = fread('comment_topography/scratch/cleaned_comment_meta.txt',sep = '\t')
-#dt = dt[meta$FORM==0,]
-#meta = meta[meta$FORM==0,]
+dt = readRDS('comment_topography/input/cleaned_comment_text.RDS')
+meta = readRDS('comment_topography/input/cleaned_comment_meta.RDS')
+
+dt$Letter.Text <- tolower(dt$Letter.Text)
+dt$Letter.Text <- tm::removeWords(dt$Letter.Text,words = tm::stopwords())
+dt$Letter.Text <- tm::removePunctuation(dt$Letter.Text)
+
+form <- fread('comment_topography/input/form_letter_designation.txt')
+form$UQID <- as.character(form$UQID)
+meta <- left_join(meta,form)
 #meta$Author.ZipCode <- str_extract(meta$Author.ZipCode,'^[0-9]{5}')
 meta$BIGCHAR = (nchar(dt$Letter.Text.Clean)>5e4) + 0
+
 
 library(textreuse)
 dt$hashes <- hash_string(dt$Letter.Text.Clean)
